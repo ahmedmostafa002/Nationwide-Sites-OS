@@ -261,8 +261,8 @@ export async function getGeoTargetSnapshot(
     }
   }
 
-  const normalizedNiche = normalizeNicheName(nicheName);
   if (!normalizedNiche) {
+
     return null;
   }
 
@@ -272,7 +272,7 @@ export async function getGeoTargetSnapshot(
   }
 
   // Return all targets to ensure selected states always have data available
-  const targets = allTargets;
+  const localTargets = allTargets;
   const stateMap = new Map<string, GeoTarget[]>();
 
   for (const target of allTargets) {
