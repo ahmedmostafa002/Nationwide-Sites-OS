@@ -1,2 +1,4 @@
 [build]
-  command = "pnpm build:studio"
+  base = "apps/studio"
+  command = "cd ../.. && pnpm generate-geo-json && cd apps/studio && pnpm build"
+  publish = ".netlify/output/public"
