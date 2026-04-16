@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   // Disable static generation for dynamic routes to prevent memory issues
   serverExternalPackages: [],
   // Reduce memory usage during build
