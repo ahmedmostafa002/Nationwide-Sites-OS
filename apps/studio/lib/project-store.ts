@@ -1,4 +1,4 @@
-﻿import {
+import {
   buildSiteManifest,
   defaultProjectValues,
   geoTargetSchema,
@@ -323,25 +323,29 @@ export function saveProject(input: Record<string, string>): SiteProject {
     ...buildProjectPayload(input, now, now)
   });
 
-  db.prepare(
-    `
-      INSERT INTO projects (
-        id,
-        site_name,
-        brand_name,
-        payload_json,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
-    `
-  ).run(
-    project.id,
-    project.siteName,
-    project.brandName,
-    JSON.stringify(project),
-    project.createdAt,
-    project.updatedAt
-  );
+  try {
+    db.prepare(
+      `
+        INSERT INTO projects (
+          id,
+          site_name,
+          brand_name,
+          payload_json,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `
+    ).run(
+      project.id,
+      project.siteName,
+      project.brandName,
+      JSON.stringify(project),
+      project.createdAt,
+      project.updatedAt
+    );
+  } catch (error) {
+    handleWriteError(error);
+  }
 
   return project;
 }
@@ -358,13 +362,17 @@ export function updateProject(id: string, input: Record<string, string>): SitePr
     ...buildProjectPayload(input, existing.createdAt, updatedAt)
   });
 
-  db.prepare(
-    `
-      UPDATE projects
-      SET site_name = ?, brand_name = ?, payload_json = ?, updated_at = ?
-      WHERE id = ?
-    `
-  ).run(project.siteName, project.brandName, JSON.stringify(project), project.updatedAt, project.id);
+  try {
+    db.prepare(
+      `
+        UPDATE projects
+        SET site_name = ?, brand_name = ?, payload_json = ?, updated_at = ?
+        WHERE id = ?
+      `
+    ).run(project.siteName, project.brandName, JSON.stringify(project), project.updatedAt, project.id);
+  } catch (error) {
+    handleWriteError(error);
+  }
 
   return project;
 }
@@ -436,28 +444,35 @@ export async function exportProjectBundle(projectId: string) {
 }
 
 export function getStudioSettings(): StudioSettings {
-  const row = db
-    .prepare(
-      `
-        SELECT payload_json, updated_at
-        FROM studio_settings
-        WHERE id = ?
-      `
-    )
-    .get("default") as { payload_json: string; updated_at: string } | undefined;
+  let dbPayload: Partial<StudioSettings> = {};
+  let updatedAt = "";
 
-  if (!row) {
-    return {
-      ...defaultStudioSettings,
-      updatedAt: ""
-    };
+  try {
+    const row = db
+      .prepare(
+        `
+          SELECT payload_json, updated_at
+          FROM studio_settings
+          WHERE id = ?
+        `
+      )
+      .get("default") as { payload_json: string; updated_at: string } | undefined;
+
+    if (row) {
+      dbPayload = JSON.parse(row.payload_json);
+      updatedAt = row.updated_at;
+    }
+  } catch (error) {
+    console.error("Failed to read studio settings from database:", error);
   }
 
-  const payload = JSON.parse(row.payload_json) as Partial<StudioSettings>;
   return {
     ...defaultStudioSettings,
-    ...payload,
-    updatedAt: row.updated_at
+    ...dbPayload,
+    // Prioritize ENV vars if available, otherwise use DB or default
+    openRouterApiKey: process.env.OPENROUTER_API_KEY || dbPayload.openRouterApiKey || defaultStudioSettings.openRouterApiKey,
+    replicateApiToken: process.env.REPLICATE_API_TOKEN || dbPayload.replicateApiToken || defaultStudioSettings.replicateApiToken,
+    updatedAt
   };
 }
 
@@ -472,17 +487,37 @@ export function saveStudioSettings(input: Record<string, string>): StudioSetting
     updatedAt
   };
 
-  db.prepare(
-    `
-      INSERT INTO studio_settings (id, payload_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        payload_json = excluded.payload_json,
-        updated_at = excluded.updated_at
-    `
-  ).run("default", JSON.stringify(settings), updatedAt);
+  try {
+    db.prepare(
+      `
+        INSERT INTO studio_settings (id, payload_json, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          payload_json = excluded.payload_json,
+          updated_at = excluded.updated_at
+      `
+    ).run("default", JSON.stringify(settings), updatedAt);
+  } catch (error) {
+    handleWriteError(error, "Studio AI settings");
+  }
 
   return settings;
+}
+
+function handleWriteError(error: unknown, context: string = "Data") {
+  console.error(`Failed to save ${context} to database:`, error);
+  if (
+    error instanceof Error &&
+    (error.message.includes("readonly") ||
+      error.message.includes("EPERM") ||
+      error.message.includes("EROFS") ||
+      error.message.includes("database is locked"))
+  ) {
+    throw new Error(
+      `The studio is running in a read-only environment (like Netlify). ${context} cannot be saved to the local database. If you are setting API keys, please use Environment Variables in your Netlify Dashboard instead.`
+    );
+  }
+  throw error;
 }
 
 export function getPromptLibrary(): PromptLibrary {
@@ -523,15 +558,19 @@ export function savePromptLibrary(input: Record<string, string>): PromptLibrary 
     updatedAt
   };
 
-  db.prepare(
-    `
-      INSERT INTO prompt_library (id, payload_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        payload_json = excluded.payload_json,
-        updated_at = excluded.updated_at
-    `
-  ).run("default", JSON.stringify(prompts), updatedAt);
+  try {
+    db.prepare(
+      `
+        INSERT INTO prompt_library (id, payload_json, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          payload_json = excluded.payload_json,
+          updated_at = excluded.updated_at
+      `
+    ).run("default", JSON.stringify(prompts), updatedAt);
+  } catch (error) {
+    handleWriteError(error, "Prompt library");
+  }
 
   return prompts;
 }
