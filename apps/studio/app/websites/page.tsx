@@ -1,10 +1,11 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { exportProjectFormAction } from "../actions";
 import { StudioShell } from "../studio-shell";
 import { listProjects } from "../../lib/project-store";
 
-export default function WebsitesPage() {
-  const projects = listProjects();
+export default async function WebsitesPage() {
+  const projects = await listProjects();
+
   const readyProjects = projects.filter((project) => project.healthStatus === "ready");
   const needsAttention = projects.length - readyProjects.length;
 

@@ -1,4 +1,4 @@
-﻿import { Suspense } from "react";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { ProjectForm } from "../../../project-form";
 import { StudioShell } from "../../../studio-shell";
@@ -9,9 +9,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const project = getProjectById(id);
-  const workbookSummary = getWorkbookSummary();
-  const promptLibrary = getPromptLibrary();
+  const project = await getProjectById(id);
+  const workbookSummary = await getWorkbookSummary();
+  const promptLibrary = await getPromptLibrary();
+
 
   if (!project) {
     notFound();

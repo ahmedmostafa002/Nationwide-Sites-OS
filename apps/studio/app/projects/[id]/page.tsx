@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildSiteManifest } from "@nls/shared";
 import { exportProjectFormAction } from "../../actions";
@@ -14,7 +14,8 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const project = getProjectById(id);
+  const project = await getProjectById(id);
+
 
   if (!project) {
     notFound();

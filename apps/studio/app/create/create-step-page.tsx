@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { ProjectForm } from "../project-form";
 import { StudioShell } from "../studio-shell";
 import { getWorkbookSummary } from "../../lib/workbook-import";
@@ -37,14 +37,15 @@ const stepCopy: Record<CreateStepId, { title: string; description: string }> = {
   }
 };
 
-export function CreateStepPage({ currentStep }: { currentStep: CreateStepId }) {
+export async function CreateStepPage({ currentStep }: { currentStep: CreateStepId }) {
   const draft = createProjectDraft();
-  const workbookSummary = getWorkbookSummary();
-  const studioSettings = getStudioSettings();
-  const promptLibrary = getPromptLibrary();
-  const projects = listProjects();
+  const workbookSummary = await getWorkbookSummary();
+  const studioSettings = await getStudioSettings();
+  const promptLibrary = await getPromptLibrary();
+  const projects = await listProjects();
   const exports = listExports();
   const copy = stepCopy[currentStep];
+
 
   return (
     <StudioShell
