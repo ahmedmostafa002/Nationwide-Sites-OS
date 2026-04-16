@@ -2,7 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "standalone",
+  output: "export",
+  // Disable image optimization for static export
+  images: {
+    unoptimized: true,
+  },
   // Disable static generation for dynamic routes to prevent memory issues
   serverExternalPackages: [],
   // Reduce memory usage during build
