@@ -210,9 +210,10 @@ export async function getGeoTargetSnapshot(
         });
 
         const targetRs = await client.execute({
-            sql: "SELECT * FROM geo_targets WHERE LOWER(niche) = LOWER(?) ORDER BY payout_raw DESC LIMIT ?",
-            args: [normalizedNiche, limit]
+            sql: "SELECT * FROM geo_targets WHERE LOWER(niche) = LOWER(?) ORDER BY payout_raw DESC LIMIT 1000",
+            args: [normalizedNiche]
         });
+
 
 
 
