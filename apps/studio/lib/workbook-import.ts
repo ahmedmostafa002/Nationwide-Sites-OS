@@ -1,4 +1,4 @@
-﻿import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as XLSX from "xlsx";
 import { geoTargetSchema, type GeoTarget } from "@nls/shared";
@@ -240,8 +240,19 @@ function loadWorkbook(workbookPath: string) {
   }
 
   // Try to load from JSON first for faster performance
-  const jsonPath = resolve(process.cwd(), "..", "..", "data", "geo-targets.json");
+  const localJsonPath = resolve(process.cwd(), "data", "geo-targets.json");
+  const rootJsonPath = resolve(process.cwd(), "..", "..", "data", "geo-targets.json");
+  const relativeJsonPath = resolve(__dirname, "..", "data", "geo-targets.json");
+  
+  const jsonPath = existsSync(localJsonPath) 
+    ? localJsonPath 
+    : existsSync(rootJsonPath) 
+      ? rootJsonPath 
+      : relativeJsonPath;
+
   if (existsSync(jsonPath)) {
+
+
     try {
       const jsonData = JSON.parse(readFileSync(jsonPath, "utf-8"));
       // Simulate XLSX.WorkBook structure

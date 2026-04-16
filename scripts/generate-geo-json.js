@@ -68,11 +68,14 @@ async function generateGeoTargets() {
     }
   }
 
-  const outputDir = resolve(process.cwd(), "data");
+  const outputDirArg = process.argv[2];
+  const outputDir = outputDirArg ? resolve(process.cwd(), outputDirArg) : resolve(process.cwd(), "data");
+  
   if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
 
-  writeFileSync(resolve(outputDir, "geo-targets.json"), JSON.stringify(data, null, 2));
-  console.log("✓ Generated data/geo-targets.json from Google Sheets");
+  const outputPath = resolve(outputDir, "geo-targets.json");
+  writeFileSync(outputPath, JSON.stringify(data, null, 2));
+  console.log(`✓ Generated ${outputPath} from Google Sheets`);
 }
 
-generateGeoTargets().catch(console.error);
+generateGeoTargets().catch(console.error);
