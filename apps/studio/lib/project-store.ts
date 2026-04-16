@@ -74,7 +74,9 @@ function getDb(): DatabaseSync {
   }
 }
 
-async function initializeTurso() {
+let isRemoteInitialized = false;
+async function ensureRemoteSchema() {
+  if (isRemoteInitialized) return;
   const client = getLibsql();
   if (!client) return;
 
@@ -109,6 +111,7 @@ async function initializeTurso() {
         duration_raw REAL
     )`
   ], "write");
+  isRemoteInitialized = true;
 }
 
 function initializeSchema(db: DatabaseSync) {
@@ -323,7 +326,9 @@ Output requirements:
 };
 
 export async function listProjects(): Promise<ProjectListItem[]> {
+  await ensureRemoteSchema();
   const libsql = getLibsql();
+
   let rows: any[] = [];
 
   if (libsql) {
@@ -397,7 +402,9 @@ export function listExports(): ExportListItem[] {
 }
 
 export async function getProjectById(id: string): Promise<SiteProject | null> {
+  await ensureRemoteSchema();
   const libsql = getLibsql();
+
   let payloadJson: string | null = null;
 
   if (libsql) {
@@ -602,7 +609,9 @@ export async function exportProjectBundle(projectId: string) {
 }
 
 export async function getStudioSettings(): Promise<StudioSettings> {
+  await ensureRemoteSchema();
   const libsql = getLibsql();
+
   let dbPayload: Partial<StudioSettings> = {};
   let updatedAt = "";
 
@@ -718,7 +727,9 @@ function handleWriteError(error: unknown, context: string = "Data") {
 }
 
 export async function getPromptLibrary(): Promise<PromptLibrary> {
+  await ensureRemoteSchema();
   const libsql = getLibsql();
+
   let dbPayload: Partial<PromptLibrary> = {};
   let updatedAt = "";
 
