@@ -1,3 +1,2 @@
 [build]
-  command = "cd apps/studio && pnpm build"
-  publish = "apps/studio/out"
+  command = "pnpm build:studio"
