@@ -117,7 +117,9 @@ async function ensureRemoteSchema() {
           duration TEXT,
           payout_raw REAL,
           duration_raw REAL
-      )`
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_geo_niche ON geo_targets(niche)`,
+      `CREATE INDEX IF NOT EXISTS idx_geo_niche_state ON geo_targets(niche, state)`
     ], "write");
     isRemoteInitialized = true;
   } catch (error) {

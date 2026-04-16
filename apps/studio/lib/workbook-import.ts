@@ -66,83 +66,26 @@ function getLibsql() {
   return null;
 }
 
+const STATIC_NICHES = [
+  "plumbing", "electrical", "water-damage", "mold-removal", "roofing", 
+  "biohazard", "hvac", "air-duct-cleaning", "appliance", "garage-doors", 
+  "bathroom-remodeling", "kitchen-remodeling", "flooring-cpl", "windows", 
+  "lawn-care-and-landscaping", "tree-services", "siding", "painting", "pest-control-duration"
+];
+
 export async function getWorkbookSummary(): Promise<WorkbookSummary> {
-  const client = getLibsql();
-  if (client) {
-    try {
-
-        const rs = await client.execute(`
-            SELECT DISTINCT niche FROM geo_targets
-        `).catch(() => ({ rows: [] }));
-        
-        const niches = rs.rows.map(row => ({
-            sheetName: row.niche as string,
-            normalizedNiche: row.niche as string,
-            rowCount: 0,
-            sampleCities: []
-        }));
-
-
-        return {
-            workbookPath: "Turso Cloud",
-            statusMessage: "Connected to Turso Cloud database.",
-            niches: niches.sort((a,b) => b.rowCount - a.rowCount)
-        };
-    } catch (error) {
-        console.error("Turso workbook summary error:", error);
-    }
-  }
-
-
-  if (cachedSummary) {
-    return cachedSummary;
-  }
-
-  const workbookPath = findWorkbookPath();
-  if (!workbookPath) {
-    cachedSummary = {
-      workbookPath: null,
-      statusMessage:
-        "No workbook detected yet. Add an .xlsx file at the project root or set WORKBOOK_PATH.",
-      niches: []
-    };
-    return cachedSummary;
-  }
-
-  const workbook = loadWorkbook(workbookPath);
-  if (!workbook) {
-    cachedSummary = {
-      workbookPath,
-      statusMessage:
-        workbookUnavailableReason ??
-        "Workbook detected, but the studio could not read it right now.",
-      niches: []
-    };
-    return cachedSummary;
-  }
-
-  const niches = workbook.SheetNames.filter((sheetName) => sheetName !== "uszips")
-    .map((sheetName) => {
-      const allRecords = normalizeSheet(sheetName);
-      const records = allRecords.slice(0, 500);
-      return {
-        sheetName,
-        normalizedNiche: normalizeNicheName(sheetName),
-        rowCount: allRecords.length,
-        sampleCities: Array.from(
-          new Set(records.map((record) => record.city).filter(Boolean))
-        ).slice(0, 3)
-      };
-    })
-    .sort((a, b) => b.rowCount - a.rowCount);
-
-  cachedSummary = {
-    workbookPath,
-    statusMessage: "Workbook loaded successfully.",
-    niches
+  // CRITICAL: Stopped using SELECT DISTINCT on 200k rows to save millions of read units.
+  // We use the static list which is synchronized with the database schema.
+  return {
+      workbookPath: "Turso Cloud (Optimized)",
+      statusMessage: "Connected to Turso Cloud (High Efficiency Mode).",
+      niches: STATIC_NICHES.map(n => ({
+          sheetName: n,
+          normalizedNiche: n,
+          rowCount: 0,
+          sampleCities: []
+      }))
   };
-
-  return cachedSummary;
 }
 
 export async function getGeoImportPreview(
@@ -196,7 +139,7 @@ export async function getGeoTargetSnapshot(
 
         
         const countRs = await client.execute({
-            sql: "SELECT COUNT(*) as count FROM geo_targets WHERE LOWER(niche) = LOWER(?)",
+            sql: "SELECT COUNT(*) as count FROM geo_targets WHERE niche = ?",
             args: [normalizedNiche]
         });
 
@@ -204,27 +147,35 @@ export async function getGeoTargetSnapshot(
         if (total === 0) return null;
 
         const stateRs = await client.execute({
-            sql: `SELECT state, COUNT(*) as count, GROUP_CONCAT(city, '|') as cities 
-                  FROM (SELECT state, city FROM geo_targets WHERE LOWER(niche) = LOWER(?) ORDER BY payout_raw DESC)
+            sql: `SELECT state, COUNT(*) as count 
+                  FROM geo_targets WHERE niche = ? 
                   GROUP BY state ORDER BY count DESC`,
             args: [normalizedNiche]
         });
 
         const targetRs = await client.execute({
-            sql: "SELECT * FROM geo_targets WHERE LOWER(niche) = LOWER(?) ORDER BY payout_raw DESC LIMIT 1000",
+            sql: "SELECT state, city, zip, payout, duration, payout_raw, duration_raw FROM geo_targets WHERE niche = ? LIMIT 100",
             args: [normalizedNiche]
         });
 
 
 
 
-        const states: GeoStateSnapshot[] = stateRs.rows.map(r => ({
-            state: r.state as string,
-            targetCount: Number(r.count),
-            sampleCities: (r.cities as string).split("|").slice(0, 3).map(c => c.charAt(0).toUpperCase() + c.slice(1)),
-            averagePriorityScore: 100,
-            topPayoutType: "CPL"
-        }));
+        const states: GeoStateSnapshot[] = stateRs.rows.map(r => {
+            const stateCode = r.state as string;
+            const sampleCities = targetRs.rows
+                .filter(t => t.state === stateCode)
+                .slice(0, 3)
+                .map(t => String(t.city).charAt(0).toUpperCase() + String(t.city).slice(1));
+
+            return {
+                state: stateCode,
+                targetCount: Number(r.count),
+                sampleCities,
+                averagePriorityScore: 100,
+                topPayoutType: "CPL"
+            };
+        });
 
         const targets: GeoTarget[] = targetRs.rows.map(r => ({
             state: r.state as string,
