@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Emergency service template",
+  intro: "This template is built for urgent, trust-first home-service niches where the visitor needs clarity, confidence, and a fast next step.",
+  emphasis: [
+    "Keep urgency clear without sounding alarmist or spammy.",
+    "Show service credibility and broad coverage structure quickly.",
+    "Guide visitors into the right service or location path fast."
+  ],
+  ctaTitle: "Need a faster path to the right service?",
+  ctaBody: "Use the linked coverage and service paths to move into the page that best matches the visitor's need.",
+  ctaButton: "Explore coverage"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

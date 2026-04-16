@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "HVAC template",
+  intro: "This template supports heating and cooling service sites where seasonal urgency, equipment trust, and service clarity are essential.",
+  emphasis: [
+    "Balance emergency urgency with long-term comfort messaging.",
+    "Keep service language understandable for residential visitors.",
+    "Support install, repair, and maintenance routes cleanly."
+  ],
+  ctaTitle: "Review the HVAC launch structure",
+  ctaBody: "This template is ready to present the strongest HVAC service modules and regional entry pages for the first deployment.",
+  ctaButton: "Open HVAC plan"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

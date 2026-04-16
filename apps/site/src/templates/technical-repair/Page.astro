@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Technical repair template",
+  intro: "This template is designed for repair-driven niches where accuracy, diagnostics, and confidence matter more than broad marketing language.",
+  emphasis: [
+    "Keep the language precise and technically credible.",
+    "Make the repair scope easy to understand for non-technical visitors.",
+    "Support high-intent service and location routes."
+  ],
+  ctaTitle: "Ready to test the repair workflow?",
+  ctaBody: "This page structure is set up to support focused repair pages, regional coverage, and strong internal discovery.",
+  ctaButton: "View page plan"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Plumbing template",
+  intro: "This template is shaped for plumbing-focused service sites with clear conversion paths, useful service framing, and local coverage support.",
+  emphasis: [
+    "Emphasize practical homeowner problems and service solutions.",
+    "Keep trust and clarity stronger than generic marketing fluff.",
+    "Support emergency and maintenance sub-services naturally."
+  ],
+  ctaTitle: "Need a plumbing coverage path?",
+  ctaBody: "Use the service cluster and launch coverage sections to verify the first plumbing site structure before deployment.",
+  ctaButton: "Check launch pages"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Remediation template",
+  intro: "This template supports remediation-focused sites that need credibility, inspection framing, and careful content structure for long-term trust.",
+  emphasis: [
+    "Keep health-adjacent language cautious and realistic.",
+    "Use inspection and remediation terms clearly.",
+    "Support city and service pages without duplication."
+  ],
+  ctaTitle: "Review the remediation structure",
+  ctaBody: "Use the planned service and coverage paths to confirm the first mold-remediation deployment before export.",
+  ctaButton: "Review remediation plan"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

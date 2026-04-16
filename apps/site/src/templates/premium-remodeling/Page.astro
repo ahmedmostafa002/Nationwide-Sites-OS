@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Remodeling template",
+  intro: "This template is designed for premium remodeling sites where design trust, project scope clarity, and polished service presentation matter.",
+  emphasis: [
+    "Lean into craftsmanship and planning clarity.",
+    "Support premium positioning without sounding generic.",
+    "Keep service modules visually and structurally intentional."
+  ],
+  ctaTitle: "Review the remodeling build",
+  ctaBody: "The page plan is ready to support higher-trust remodeling routes across service and location combinations.",
+  ctaButton: "Review build"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

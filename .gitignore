@@ -1,0 +1,12 @@
+node_modules
+.next
+.astro
+dist
+.turbo
+.env
+.env.local
+.env.*.local
+*.db
+*.db-shm
+*.db-wal
+coverage

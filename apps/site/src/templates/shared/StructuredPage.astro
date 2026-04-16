@@ -1,0 +1,220 @@
+﻿---
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface TemplateVariant {
+  label: string;
+  intro: string;
+  emphasis: string[];
+  ctaTitle: string;
+  ctaBody: string;
+  ctaButton: string;
+}
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+  variant: TemplateVariant;
+}
+
+const { page, manifest, variant } = Astro.props;
+
+const themeStyle = [
+  `--primary-color:${manifest.theme.primaryColor}`,
+  `--accent-color:${manifest.theme.accentColor}`,
+  `--font-heading:${JSON.stringify(manifest.theme.fontHeading)}`,
+  `--font-body:${JSON.stringify(manifest.theme.fontBody)}`
+].join(";");
+
+const relatedServices = manifest.serviceKeys.slice(0, 6);
+const relatedStates = manifest.stateCodes.slice(0, 6);
+const headline = getHeadline(page, manifest);
+const lead = getLead(page, manifest, variant);
+const bullets = getBullets(page, manifest, variant);
+const ctaHref = page.pageType === "homepage" ? "#coverage" : "/";
+
+function getHeadline(page: SiteManifestPage, manifest: SiteManifest) {
+  if (page.pageType === "homepage") return `${manifest.brandName} nationwide ${manifest.siteName.toLowerCase()} coverage`;
+  if (page.pageType === "service") return `${page.serviceKey ?? manifest.siteName} service guidance`;
+  if (page.pageType === "state") return `${manifest.siteName} across ${page.state}`;
+  if (page.pageType === "city") return `${manifest.siteName} in ${page.city}, ${page.state}`;
+  return `${page.serviceKey ?? manifest.siteName} in ${page.city}, ${page.state}`;
+}
+
+function getLead(page: SiteManifestPage, manifest: SiteManifest, variant: TemplateVariant) {
+  if (page.pageType === "homepage") return `${variant.intro} This homepage gives users a clear entry point into the main service theme, coverage structure, and supporting service modules for ${manifest.brandName}.`;
+  if (page.pageType === "service") return `This service page explains ${page.serviceKey?.toLowerCase() ?? manifest.siteName.toLowerCase()} in a clear, useful way so visitors understand the service scope, supporting pages, and next step.`;
+  if (page.pageType === "state") return `This state page groups regional coverage for ${page.state} and helps users move into city pages and related services without creating thin doorway-style content.`;
+  if (page.pageType === "city") return `This city page is designed to add localized relevance for ${page.city}, ${page.state} while staying honest about service coverage and keeping the content genuinely useful.`;
+  return `This city-service page narrows the intent to ${page.serviceKey?.toLowerCase() ?? manifest.siteName.toLowerCase()} in ${page.city}, ${page.state}, giving the visitor a clearer decision-making path.`;
+}
+
+function getBullets(page: SiteManifestPage, _manifest: SiteManifest, variant: TemplateVariant): string[] {
+  const common = [
+    ...variant.emphasis,
+    "Match search intent with useful, readable content rather than filler.",
+    "Support internal linking with logical service and geography relationships."
+  ];
+
+  if (page.pageType === "homepage") return ["Introduce the brand, main niche, and service direction clearly.", "Surface the strongest service modules and launch states.", ...common];
+  if (page.pageType === "service") return [`Explain what ${page.serviceKey?.toLowerCase() ?? "this service"} covers and when it is relevant.`, "Show how this page connects to supporting regional pages.", ...common];
+  if (page.pageType === "state") return [`Group the best city entry points for ${page.state}.`, "Help users move from regional intent into a more precise page type.", ...common];
+  if (page.pageType === "city") return [`Add place-aware context for ${page.city}, ${page.state}.`, "Keep the page distinct from other cities without fake local claims.", ...common];
+  return [`Focus tightly on ${page.serviceKey?.toLowerCase() ?? "the service"} in ${page.city}, ${page.state}.`, "Make the page useful enough to stand on its own as a targeted landing page.", ...common];
+}
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{page.title}</title>
+    <meta name="description" content={page.description} />
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #121a27;
+        --line: rgba(255, 255, 255, 0.08);
+        --text: #ecf3ff;
+        --muted: #9db0c8;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: var(--font-body), sans-serif;
+        background:
+          radial-gradient(circle at top right, color-mix(in srgb, var(--accent-color) 16%, transparent), transparent 26%),
+          radial-gradient(circle at bottom left, color-mix(in srgb, var(--primary-color) 20%, transparent), transparent 24%),
+          var(--bg);
+        color: var(--text);
+      }
+      a { color: inherit; text-decoration: none; }
+      .shell { width: min(1180px, calc(100vw - 40px)); margin: 0 auto; padding: 28px 0 64px; }
+      .hero, .card, .cta {
+        border: 1px solid var(--line);
+        background: rgba(18, 26, 39, 0.92);
+        backdrop-filter: blur(12px);
+        border-radius: 28px;
+      }
+      .hero { padding: 30px; display: grid; grid-template-columns: 1.35fr 0.9fr; gap: 24px; margin-bottom: 24px; }
+      .eyebrow { margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.72rem; font-weight: 700; color: var(--accent-color); }
+      h1, h2, h3 { margin: 0; font-family: var(--font-heading), sans-serif; line-height: 1.02; }
+      h1 { font-size: clamp(2.4rem, 5vw, 4.8rem); margin-bottom: 16px; }
+      h2 { font-size: 1.45rem; margin-bottom: 12px; }
+      p, li, small, code { color: var(--muted); }
+      code { font-family: Consolas, monospace; }
+      .hero-copy p { max-width: 62ch; font-size: 1.02rem; }
+      .hero-meta { display: grid; gap: 14px; }
+      .metric { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+      .metric strong { display: block; font-size: 1.5rem; color: var(--text); }
+      .grid { display: grid; gap: 20px; grid-template-columns: 1.05fr 0.95fr; }
+      .stack { display: grid; gap: 20px; }
+      .card { padding: 24px; }
+      .bullet-list { margin: 0; padding-left: 18px; display: grid; gap: 12px; }
+      .pill-row { display: flex; flex-wrap: wrap; gap: 10px; }
+      .pill { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); color: var(--text); font-size: 0.92rem; }
+      .content-section { margin-bottom: 24px; }
+      .content-card { padding: 24px; }
+      .content-body { line-height: 1.6; }
+      .content-body h1, .content-body h2, .content-body h3, .content-body h4, .content-body h5, .content-body h6 { margin-top: 1.5em; margin-bottom: 0.5em; font-family: var(--font-heading), sans-serif; }
+      .content-body h1 { font-size: 2rem; }
+      .content-body h2 { font-size: 1.5rem; }
+      .content-body h3 { font-size: 1.25rem; }
+      .content-body p { margin-bottom: 1em; }
+      .content-body ul, .content-body ol { margin-bottom: 1em; padding-left: 1.5em; }
+      .content-body li { margin-bottom: 0.5em; }
+      .cta { margin-top: 24px; padding: 28px; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+      .button { display: inline-flex; align-items: center; justify-content: center; padding: 14px 20px; border-radius: 999px; background: linear-gradient(135deg, var(--primary-color), var(--accent-color)); color: white; font-weight: 700; min-width: 200px; }
+      footer { margin-top: 28px; padding: 18px 0 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+      @media (max-width: 960px) {
+        .hero, .grid, .cta { grid-template-columns: 1fr; display: grid; }
+        .shell { width: min(100vw - 24px, 1180px); padding-top: 16px; }
+      }
+    </style>
+  </head>
+  <body style={themeStyle}>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">{variant.label}</p>
+          <h1>{headline}</h1>
+          <p>{lead}</p>
+          <div class="pill-row">
+            {page.keywords.slice(0, 4).map((keyword: string) => <span class="pill">{keyword}</span>)}
+          </div>
+        </div>
+        <div class="hero-meta">
+          <div class="metric"><small>Template family</small><strong>{manifest.templateFamily}</strong></div>
+          <div class="metric"><small>Service cluster</small><strong>{manifest.serviceKeys.length}</strong></div>
+          <div class="metric"><small>Coverage states</small><strong>{manifest.stateCodes.length}</strong></div>
+        </div>
+      </section>
+
+      {page.content ? (
+        <section class="content-section">
+          <article class="card content-card">
+            <div class="content-body" set:html={page.content.replace(/^#+\s*/gm, (match: string) => `<h${match.length + 1}>`).replace(/\n/g, '<br>')} />
+          </article>
+        </section>
+      ) : (
+        <>
+          <section class="grid">
+            <div class="stack">
+              <article class="card">
+                <p class="eyebrow">Why this page exists</p>
+                <h2>Helpful page purpose</h2>
+                <ul class="bullet-list">
+                  {bullets.map((bullet: string) => <li>{bullet}</li>)}
+                </ul>
+              </article>
+
+              <article class="card" id="coverage">
+                <p class="eyebrow">Coverage structure</p>
+                <h2>Launch footprint</h2>
+                <div class="coverage-grid">
+                  {relatedStates.length > 0 ? relatedStates.map((state: string) => (
+                    <div class="coverage-item">
+                      <strong>{state}</strong>
+                      <small>State launch page included in the manifest.</small>
+                    </div>
+                  )) : <p>No state coverage is attached yet.</p>}
+                </div>
+              </article>
+            </div>
+
+            <div class="stack">
+              <article class="card">
+                <p class="eyebrow">Service modules</p>
+                <h2>Current service cluster</h2>
+                <div class="pill-row">
+                  {relatedServices.length > 0 ? relatedServices.map((service: string) => <span class="pill">{service}</span>) : <span class="pill">No services attached yet</span>}
+                </div>
+              </article>
+
+              <article class="card">
+                <p class="eyebrow">Internal links</p>
+                <h2>Related page paths</h2>
+                <ul class="bullet-list">
+                  {page.internalLinks.length > 0 ? page.internalLinks.map((link: string) => <li><code>{link}</code></li>) : <li>No internal links planned for this page yet.</li>}
+                </ul>
+              </article>
+            </div>
+          </section>
+        </>
+      )}
+
+      <section class="cta">
+        <div>
+          <p class="eyebrow">Conversion direction</p>
+          <h2>{variant.ctaTitle}</h2>
+          <p>{variant.ctaBody}</p>
+        </div>
+        <a class="button" href={ctaHref}>{variant.ctaButton}</a>
+      </section>
+
+      <footer>
+        <small>{manifest.brandName} · {manifest.siteName}</small>
+        <small>{page.slug}</small>
+      </footer>
+    </main>
+  </body>
+</html>

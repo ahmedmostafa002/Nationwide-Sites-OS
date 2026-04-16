@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm build *)",
+      "Bash(pnpm dev *)",
+      "Bash(ls -la apps/site/src/templates/*/Page.astro)"
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Restoration template",
+  intro: "This template is meant for restoration and recovery niches where urgency, process clarity, and helpful next-step direction must work together.",
+  emphasis: [
+    "Make emergency framing clear and useful.",
+    "Support remediation and recovery page paths logically.",
+    "Keep trust signals stronger than exaggerated claims."
+  ],
+  ctaTitle: "Validate the restoration site plan",
+  ctaBody: "This layout is ready to support first-launch recovery pages, regional routes, and focused service intent pages.",
+  ctaButton: "Validate pages"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

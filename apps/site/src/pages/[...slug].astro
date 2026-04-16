@@ -1,0 +1,107 @@
+﻿---
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type { SiteManifest } from "../content-types";
+
+type ExportPayload = {
+  exportedAt: string;
+  siteManifest?: SiteManifest;
+};
+
+export async function getStaticPaths() {
+  const exportsDir = resolve(process.cwd(), "..", "exports");
+  const exportFiles = existsSync(exportsDir)
+    ? readdirSync(exportsDir).filter((entry) => entry.endsWith(".json")).sort().reverse()
+    : [];
+
+  const latestExport = exportFiles[0]
+    ? (JSON.parse(readFileSync(resolve(exportsDir, exportFiles[0]), "utf8")) as ExportPayload)
+    : null;
+
+  const manifest = latestExport?.siteManifest ?? null;
+  if (!manifest) return [];
+
+  return manifest.pagePlan
+    .filter((page) => page.slug !== "/")
+    .map((page) => ({ params: { slug: page.slug.replace(/^\//, "") } }));
+}
+
+const exportsDir = resolve(process.cwd(), "..", "exports");
+const exportFiles = existsSync(exportsDir)
+  ? readdirSync(exportsDir).filter((entry) => entry.endsWith(".json")).sort().reverse()
+  : [];
+
+const latestExport = exportFiles[0]
+  ? (JSON.parse(readFileSync(resolve(exportsDir, exportFiles[0]), "utf8")) as ExportPayload)
+  : null;
+
+const manifest = latestExport?.siteManifest ?? null;
+
+if (!manifest) {
+  return Astro.redirect("/");
+}
+
+const { slug } = Astro.params;
+const path = Array.isArray(slug) ? `/${slug.join("/")}` : "/";
+const page = manifest.pagePlan.find((entry) => entry.slug === path) ?? null;
+
+const templateModules = {
+  "emergency-home-service": () => import("../templates/emergency-home-service/Page.astro"),
+  plumbing: () => import("../templates/plumbing/Page.astro"),
+  hvac: () => import("../templates/hvac/Page.astro"),
+  roofing: () => import("../templates/roofing/Page.astro"),
+  electrical: () => import("../templates/electrical/Page.astro"),
+  "water-damage": () => import("../templates/water-damage/Page.astro"),
+  mold: () => import("../templates/mold/Page.astro"),
+  "premium-remodeling": () => import("../templates/premium-remodeling/Page.astro"),
+  "technical-repair": () => import("../templates/technical-repair/Page.astro"),
+  "trust-heavy-leadgen": () => import("../templates/trust-heavy-leadgen/Page.astro")
+} as const;
+
+const loadTemplate = templateModules[manifest.templateFamily as keyof typeof templateModules] ?? templateModules["trust-heavy-leadgen"];
+const Template = (await loadTemplate()).default;
+const canonical = Astro.site ? new URL(path, Astro.site).toString() : path;
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: page?.title ?? manifest.siteName,
+  description: page?.description ?? `${manifest.siteName} page output`,
+  url: canonical,
+  isPartOf: {
+    "@type": "WebSite",
+    name: manifest.brandName,
+    url: Astro.site?.toString() ?? "/"
+  }
+};
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{page ? page.title : "Page Not Found"}</title>
+    <meta name="description" content={page ? page.description : "The requested page could not be found."} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={page ? page.title : manifest.siteName} />
+    <meta property="og:description" content={page ? page.description : `${manifest.brandName} site page`} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
+  </head>
+  <body>
+    {page ? (
+      <Template page={page} manifest={manifest} />
+    ) : (
+      <main style="min-height:100vh;display:grid;place-items:center;background:#0b1220;color:#ecf3ff;font-family:Arial,sans-serif;">
+        <div style="max-width:640px;padding:24px;text-align:center;">
+          <h1>Page not found</h1>
+          <p>The requested manifest route does not exist yet for this exported project.</p>
+          <p><a href="/" style="color:#8e5dff;">Return to homepage</a></p>
+        </div>
+      </main>
+    )}
+  </body>
+</html>
+
+

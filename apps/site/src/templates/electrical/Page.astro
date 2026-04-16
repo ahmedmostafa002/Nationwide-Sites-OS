@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Electrical template",
+  intro: "This template supports electrical-service sites where safety, licensing trust, and clearly scoped service pages matter most.",
+  emphasis: [
+    "Use safety-first language without fear-based exaggeration.",
+    "Keep repair and upgrade intent distinct and useful.",
+    "Support local trust through clean service and geography structure."
+  ],
+  ctaTitle: "Check the electrical rollout",
+  ctaBody: "Use this page system to verify the strongest electrical service and launch-market paths before export.",
+  ctaButton: "Inspect rollout"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Leadgen trust template",
+  intro: "This template is built for trust-heavy nationwide leadgen projects that need clear value, safe structure, and polished conversion pathways.",
+  emphasis: [
+    "Keep trust-building stronger than keyword repetition.",
+    "Use the page plan to improve discovery and crawl flow.",
+    "Make every page type feel purposeful and useful."
+  ],
+  ctaTitle: "Check the leadgen launch map",
+  ctaBody: "This structure gives the first nationwide site a clearer path from brand homepage into services, states, and city intent pages.",
+  ctaButton: "Check launch map"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />

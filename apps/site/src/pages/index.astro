@@ -1,0 +1,240 @@
+﻿---
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type { SiteManifest } from "../content-types";
+
+type ExportPayload = {
+  exportedAt: string;
+  siteManifest?: SiteManifest;
+};
+
+const exportsDirectory = resolve(process.cwd(), "..", "exports");
+const exportFiles = existsSync(exportsDirectory)
+  ? readdirSync(exportsDirectory)
+      .filter((entry) => entry.endsWith(".json"))
+      .sort()
+      .reverse()
+  : [];
+
+const latestExport = exportFiles[0]
+  ? (JSON.parse(readFileSync(resolve(exportsDirectory, exportFiles[0]), "utf8")) as ExportPayload)
+  : null;
+
+const manifest = latestExport?.siteManifest ?? null;
+const title = manifest ? `${manifest.siteName} Astro Output` : "Nationwide Local Site Output";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{title}</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6efe6;
+        --text: #182033;
+        --muted: #5d6679;
+        --card: rgba(255, 255, 255, 0.88);
+        --accent: #0f766e;
+        --accent-2: #f97316;
+        --line: rgba(24, 32, 51, 0.08);
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background:
+          radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 24%),
+          radial-gradient(circle at bottom left, rgba(249, 115, 22, 0.12), transparent 22%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      main {
+        width: min(1120px, calc(100vw - 40px));
+        margin: 0 auto;
+        padding: 40px 0 72px;
+      }
+
+      .shell {
+        display: grid;
+        gap: 20px;
+      }
+
+      .hero,
+      .card {
+        border-radius: 24px;
+        padding: 28px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 24px;
+        align-items: start;
+      }
+
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.72rem;
+        color: var(--accent);
+        font-weight: 700;
+        margin: 0 0 10px;
+      }
+
+      h1 {
+        font-size: clamp(2rem, 5vw, 4.4rem);
+        line-height: 0.95;
+        margin: 0 0 16px;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+        margin: 0 0 14px;
+      }
+
+      p,
+      li,
+      small {
+        color: var(--muted);
+      }
+
+      .metrics,
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .metric {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .metric strong {
+        display: block;
+        font-size: 1.6rem;
+        color: var(--text);
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(15, 118, 110, 0.08);
+        color: var(--text);
+        border: 1px solid rgba(15, 118, 110, 0.1);
+        font-size: 0.9rem;
+      }
+
+      ul {
+        padding-left: 20px;
+        margin: 0;
+      }
+
+      @media (max-width: 900px) {
+        .hero,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">Astro Output Layer</p>
+            <h1>{manifest ? manifest.siteName : "Nationwide Local Site Output"}</h1>
+            <p>
+              {manifest
+                ? `The studio export now includes a structured page manifest for ${manifest.brandName}. This is the bridge Astro will use to render real templates, routes, and deployment bundles.`
+                : "No exported site manifest found yet. Save a project in the studio, then export it to see the planned page structure here."}
+            </p>
+          </div>
+
+          <div class="metrics">
+            <div class="metric">
+              <small>Total pages</small>
+              <strong>{manifest ? manifest.counts.totalPages : 0}</strong>
+            </div>
+            <div class="metric">
+              <small>Template family</small>
+              <strong>{manifest ? manifest.templateFamily : "None"}</strong>
+            </div>
+            <div class="metric">
+              <small>Service pages</small>
+              <strong>{manifest ? manifest.counts.servicePages : 0}</strong>
+            </div>
+            <div class="metric">
+              <small>Location pages</small>
+              <strong>{manifest ? manifest.counts.cityPages + manifest.counts.cityServicePages : 0}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid">
+          <article class="card">
+            <p class="eyebrow">Planned Services</p>
+            <h2>Service clusters</h2>
+            {manifest ? (
+              <div class="pill-row">
+                {manifest.serviceKeys.map((service) => <span class="pill">{service}</span>)}
+              </div>
+            ) : (
+              <p>Export a project from the studio to populate the service cluster plan.</p>
+            )}
+          </article>
+
+          <article class="card">
+            <p class="eyebrow">Coverage Footprint</p>
+            <h2>Launch states</h2>
+            {manifest ? (
+              <div class="pill-row">
+                {manifest.stateCodes.map((state) => <span class="pill">{state}</span>)}
+              </div>
+            ) : (
+              <p>No launch-state data is available until the first export is generated.</p>
+            )}
+          </article>
+        </section>
+
+        <section class="card">
+          <p class="eyebrow">What comes next</p>
+          <h2>Template rendering pipeline</h2>
+          <ul>
+            <li>The studio now exports a structured page manifest rather than only raw project JSON.</li>
+            <li>The next Astro step is dynamic route rendering from this manifest into homepage, service, state, and city templates.</li>
+            <li>That will let one saved project produce a deployable static site bundle for Vercel, Netlify, or Cloudflare Pages.</li>
+          </ul>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

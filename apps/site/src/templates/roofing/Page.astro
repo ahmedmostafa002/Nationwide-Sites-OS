@@ -1,0 +1,26 @@
+﻿---
+import StructuredPage from "../shared/StructuredPage.astro";
+import type { SiteManifest, SiteManifestPage } from "../../content-types";
+
+interface Props {
+  page: SiteManifestPage;
+  manifest: SiteManifest;
+}
+
+const { page, manifest } = Astro.props;
+
+const variant = {
+  label: "Roofing template",
+  intro: "This template is built for roofing and exterior repair niches where trust, inspection framing, and storm-response clarity drive conversions.",
+  emphasis: [
+    "Keep storm, inspection, and repair intent clearly separated.",
+    "Show strong regional structure without fake local claims.",
+    "Support inspection and replacement page expansion."
+  ],
+  ctaTitle: "Review the roofing page system",
+  ctaBody: "This structure helps surface the first roofing service modules and state-to-city route plan for launch.",
+  ctaButton: "Review structure"
+};
+---
+
+<StructuredPage page={page} manifest={manifest} variant={variant} />
