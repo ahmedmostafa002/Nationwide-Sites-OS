@@ -42,13 +42,29 @@ function csvToJson(csvText) {
   const lines = csvText.split('\n').filter(line => line.trim());
   if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+  const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
   const rows = lines.slice(1).map(line => {
     const values = line.split(',').map(v => v.replace(/"/g, '').trim());
     const obj = {};
     headers.forEach((header, i) => {
-      obj[header] = values[i] || '';
+      let key = header;
+      if (header === 'zip code') key = 'zip';
+      if (header === 'state') key = 'state';
+      if (header === 'state_id') key = 'state';
+      if (header === 'city') key = 'city';
+      if (header === 'cpl payouts') key = 'payout';
+      if (header === 'duration payouts') key = 'duration';
+      
+      // Keep only first occurrence of mapped keys to avoid overwriting with empty
+      if (!obj[key] || values[i]) {
+         obj[key] = values[i] || '';
+      }
     });
+
+    // Special case for payout_raw and duration_raw
+    obj.payout_raw = parseFloat(String(obj.payout || "0").replace(/[^0-9.]/g, "")) || 0;
+    obj.duration_raw = parseFloat(String(obj.duration || "0").replace(/[^0-9.]/g, "")) || 0;
+
     return obj;
   });
 
@@ -111,16 +127,17 @@ async function generateGeoTargets() {
 
         for (const target of targets) {
             statements.push({
-                sql: `INSERT INTO geo_targets (id, niche, state, city, zip, payout, duration, payout_raw, duration_raw)
+                sql: `INSERT OR REPLACE INTO geo_targets (id, niche, state, city, zip, payout, duration, payout_raw, duration_raw)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 args: [
-                    `${niche}-${target.zip}`,
-                    niche,
-                    target.state,
-                    target.city,
-                    target.zip,
-                    target.payout,
-                    target.duration,
+                    `${niche}-${target.zip}-${target.city}`.replace(/\s+/g, "-").toLowerCase(),
+
+                    String(niche || ""),
+                    String(target.state || ""),
+                    String(target.city || ""),
+                    String(target.zip || ""),
+                    String(target.payout || ""),
+                    String(target.duration || ""),
                     Number(target.payout_raw) || 0,
                     Number(target.duration_raw) || 0
                 ]
