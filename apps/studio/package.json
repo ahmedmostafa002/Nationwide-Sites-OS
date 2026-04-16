@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:netlify": "pnpm generate-geo-json && pnpm build",
+    "generate-geo-json": "node ../../scripts/generate-geo-json.js",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"

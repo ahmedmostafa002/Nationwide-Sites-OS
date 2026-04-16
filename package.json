@@ -12,5 +12,8 @@
     "typecheck": "pnpm -r typecheck",
     "generate-geo-json": "node ./scripts/generate-geo-json.js",
     "build:studio": "pnpm generate-geo-json && pnpm --filter studio build"
+  },
+  "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.15.9"
   }
 }
