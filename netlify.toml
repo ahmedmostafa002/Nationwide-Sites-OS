@@ -1,4 +1,7 @@
 [build]
   base = "apps/studio"
-  command = "cd ../.. && pnpm generate-geo-json && cd apps/studio && pnpm build"
+  command = "pnpm build:netlify"
   publish = ".netlify/output/public"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
