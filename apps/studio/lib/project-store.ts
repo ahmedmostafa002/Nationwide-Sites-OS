@@ -535,7 +535,7 @@ export async function updateProject(id: string, input: Record<string, string>): 
 }
 
 export async function exportProjectBundle(projectId: string) {
-  const project = getProjectById(projectId);
+  const project = await getProjectById(projectId);
   if (!project) {
     throw new Error("Project not found.");
   }
@@ -546,13 +546,14 @@ export async function exportProjectBundle(projectId: string) {
   const siteManifest = buildSiteManifest(project);
 
   // Get settings and prompts for AI generation
-  const settings = getStudioSettings();
-  const prompts = getPromptLibrary();
+  const settings = await getStudioSettings();
+  const prompts = await getPromptLibrary();
 
   // Generate content for each page
   const pagesWithContent = await Promise.all(
     siteManifest.pagePlan.map(async (page) => {
       const prompt = getPromptForPageType(page.pageType, prompts);
+
       const contentPayload: PageContentPayload = {
         pageType: page.pageType,
         title: page.title,
