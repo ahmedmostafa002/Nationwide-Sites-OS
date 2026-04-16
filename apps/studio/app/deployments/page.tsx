@@ -1,2 +1,79 @@
 export const dynamic = 'force-dynamic';
-export const dynamic = 'force-dynamic'; import { StudioShell } from "../studio-shell"; import { listExports } from "../../lib/project-store";  export default async function DeploymentsPage() {    const exports = listExports();    return (     <StudioShell       active="deployments"       title="Deployments"       description="Review the export history for deployable bundles, watch what has been regenerated, and keep track of output readiness."       stats={[         { value: String(exports.length), label: "Exports" },         { value: exports[0] ? new Date(exports[0].exportedAt).toLocaleDateString() : "None", label: "Latest export", accent: true }       ]}     >       <section className="stack">         <div className="dashboard-strip two-up">           <article className="card metric-card">             <p className="section-kicker">Export history</p>             <h2>{exports.length}</h2>             <p className="muted">Generated bundles available for deployment or review.</p>           </article>           <article className="card accent-panel">             <p className="section-kicker">Deployment model</p>             <h2>Portable Astro manifest output</h2>             <p className="muted">Exports now include a structured page manifest so the static site layer can render real routes from project data.</p>           </article>         </div>          <article className="card management-card">           <div className="section-header">             <div>               <p className="section-kicker">Generated bundles</p>               <h2>Deployment packages</h2>             </div>           </div>           {exports.length === 0 ? (             <p className="muted">No export bundles yet. Use “Export again” from My Websites after saving a project.</p>           ) : (             <div className="project-table">               <div className="project-table-head">                 <span>Website</span>                 <span>Bundle</span>                 <span>Exported</span>                 <span>Pages</span>                 <span>Template</span>               </div>               {exports.map((item) => (                 <div className="project-table-row" key={item.fileName}>                   <div>                     <strong>{item.siteName}</strong>                     <p className="muted">{item.projectId}</p>                   </div>                   <div>                     <strong>{item.fileName}</strong>                     <p className="muted clamp-line">{item.filePath}</p>                   </div>                   <div>                     <strong>{new Date(item.exportedAt).toLocaleString()}</strong>                     <p className="muted">Generated bundle</p>                   </div>                   <div>                     <strong>{item.totalPages.toLocaleString()}</strong>                     <p className="muted">Manifest pages</p>                   </div>                   <div>                     <strong>{item.templateFamily}</strong>                     <p className="muted">{item.sizeBytes.toLocaleString()} bytes</p>                   </div>                 </div>               ))}             </div>           )}         </article>       </section>     </StudioShell>   ); }
+import { StudioShell } from "../studio-shell";
+import { listExports } from "../../lib/project-store";
+
+export default async function DeploymentsPage() {
+   const exports = listExports();
+   return (
+    <StudioShell
+      active="deployments"
+      title="Deployments"
+      description="Review the export history for deployable bundles, watch what has been regenerated, and keep track of output readiness."
+      stats={[
+        { value: String(exports.length), label: "Exports" },
+        { value: exports[0] ? new Date(exports[0].exportedAt).toLocaleDateString() : "None", label: "Latest export", accent: true }
+      ]}
+    >
+      <section className="stack">
+        <div className="dashboard-strip two-up">
+          <article className="card metric-card">
+            <p className="section-kicker">Export history</p>
+            <h2>{exports.length}</h2>
+            <p className="muted">Generated bundles available for deployment or review.</p>
+          </article>
+          <article className="card accent-panel">
+            <p className="section-kicker">Deployment model</p>
+            <h2>Portable Astro manifest output</h2>
+            <p className="muted">Exports now include a structured page manifest so the static site layer can render real routes from project data.</p>
+          </article>
+        </div>
+
+        <article className="card management-card">
+          <div className="section-header">
+            <div>
+              <p className="section-kicker">Generated bundles</p>
+              <h2>Deployment packages</h2>
+            </div>
+          </div>
+          {exports.length === 0 ? (
+            <p className="muted">No export bundles yet. Use “Export again” from My Websites after saving a project.</p>
+          ) : (
+            <div className="project-table">
+              <div className="project-table-head">
+                <span>Website</span>
+                <span>Bundle</span>
+                <span>Exported</span>
+                <span>Pages</span>
+                <span>Template</span>
+              </div>
+              {exports.map((item) => (
+                <div className="project-table-row" key={item.fileName}>
+                  <div>
+                    <strong>{item.siteName}</strong>
+                    <p className="muted">{item.projectId}</p>
+                  </div>
+                  <div>
+                    <strong>{item.fileName}</strong>
+                    <p className="muted clamp-line">{item.filePath}</p>
+                  </div>
+                  <div>
+                    <strong>{new Date(item.exportedAt).toLocaleString()}</strong>
+                    <p className="muted">Generated bundle</p>
+                  </div>
+                  <div>
+                    <strong>{item.totalPages.toLocaleString()}</strong>
+                    <p className="muted">Manifest pages</p>
+                  </div>
+                  <div>
+                    <strong>{item.templateFamily}</strong>
+                    <p className="muted">{item.sizeBytes.toLocaleString()} bytes</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+      </section>
+    </StudioShell>
+  );
+}
