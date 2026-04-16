@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { exportProjectBundle, saveProject, savePromptLibrary, saveStudioSettings, updateProject } from "../lib/project-store";
@@ -14,7 +14,7 @@ export async function saveProjectAction(
   formData: FormData
 ): Promise<SaveProjectState> {
   try {
-    const project = saveProject(getProjectInput(formData));
+    const project = await saveProject(getProjectInput(formData));
 
     revalidatePath("/");
     revalidatePath("/websites");
@@ -41,7 +41,7 @@ export async function updateProjectAction(
   formData: FormData
 ): Promise<SaveProjectState> {
   try {
-    const project = updateProject(projectId, getProjectInput(formData));
+    const project = await updateProject(projectId, getProjectInput(formData));
 
     revalidatePath("/");
     revalidatePath("/websites");
@@ -66,7 +66,7 @@ export async function saveStudioSettingsAction(
   formData: FormData
 ): Promise<SaveProjectState> {
   try {
-    const settings = saveStudioSettings({
+    const settings = await saveStudioSettings({
       openRouterApiKey: getValue(formData, "openRouterApiKey"),
       replicateApiToken: getValue(formData, "replicateApiToken"),
       defaultTextModel: getValue(formData, "defaultTextModel"),
@@ -98,7 +98,7 @@ export async function savePromptLibraryAction(
   formData: FormData
 ): Promise<SaveProjectState> {
   try {
-    savePromptLibrary({
+    await savePromptLibrary({
       homepagePrompt: getValue(formData, "homepagePrompt"),
       servicePrompt: getValue(formData, "servicePrompt"),
       locationPrompt: getValue(formData, "locationPrompt"),

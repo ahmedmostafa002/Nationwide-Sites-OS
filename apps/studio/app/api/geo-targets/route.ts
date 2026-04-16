@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getGeoTargetSnapshot } from "../../../lib/workbook-import";
 
 export async function GET(request: Request) {
@@ -10,7 +10,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing niche." }, { status: 400 });
   }
 
-  const snapshot = getGeoTargetSnapshot(niche, Number.isFinite(limit) ? limit : 120);
+  const snapshot = await getGeoTargetSnapshot(niche, Number.isFinite(limit) ? limit : 120);
+
   if (!snapshot) {
     return NextResponse.json({ error: "No geo targets found for that niche." }, { status: 404 });
   }

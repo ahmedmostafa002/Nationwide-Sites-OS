@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createClient } from "@libsql/client";
 
 // Google Sheets CSV export URLs
 const SPREADSHEET_ID = "1nzrsEJUYnQ7U2pk7jt9ubUVDiA4v_NXwU3_QFh9dLu4";
@@ -76,6 +77,67 @@ async function generateGeoTargets() {
   const outputPath = resolve(outputDir, "geo-targets.json");
   writeFileSync(outputPath, JSON.stringify(data, null, 2));
   console.log(`✓ Generated ${outputPath} from Google Sheets`);
+
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (tursoUrl) {
+    console.log("⬆ Uploading to Turso database...");
+    const client = createClient({ url: tursoUrl, authToken: tursoToken });
+    
+    // Create table if not exists
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS geo_targets (
+        id TEXT PRIMARY KEY,
+        niche TEXT NOT NULL,
+        state TEXT NOT NULL,
+        city TEXT NOT NULL,
+        zip TEXT NOT NULL,
+        payout TEXT,
+        duration TEXT,
+        payout_raw REAL,
+        duration_raw REAL
+      )
+    `);
+
+    // Prepare batch inserts
+    const statements = [];
+    for (const [niche, targets] of Object.entries(data)) {
+        // Clear existing for this niche to avoid duplicates on re-run
+        statements.push({
+            sql: "DELETE FROM geo_targets WHERE niche = ?",
+            args: [niche]
+        });
+
+        for (const target of targets) {
+            statements.push({
+                sql: `INSERT INTO geo_targets (id, niche, state, city, zip, payout, duration, payout_raw, duration_raw)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                args: [
+                    `${niche}-${target.zip}`,
+                    niche,
+                    target.state,
+                    target.city,
+                    target.zip,
+                    target.payout,
+                    target.duration,
+                    Number(target.payout_raw) || 0,
+                    Number(target.duration_raw) || 0
+                ]
+            });
+        }
+    }
+
+    // LibSQL batch limit is high, but let's chunk it just in case some niches are massive
+    const chunkSize = 100;
+    for (let i = 0; i < statements.length; i += chunkSize) {
+       await client.batch(statements.slice(i, i + chunkSize), "write");
+       process.stdout.write(`Progress: ${Math.round((i / statements.length) * 100)}%\r`);
+    }
+
+    console.log("\n✓ Uploaded all geo targets to Turso!");
+    client.close();
+  }
 }
 
-generateGeoTargets().catch(console.error);
+generateGeoTargets().catch(console.error);

@@ -52,7 +52,46 @@ let cachedSummary: WorkbookSummary | null = null;
 let workbookUnavailableReason: string | null = null;
 let cachedSheetTargets: Map<string, GeoTarget[]> | null = null;
 
-export function getWorkbookSummary(): WorkbookSummary {
+export async function getWorkbookSummary(): Promise<WorkbookSummary> {
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  if (tursoUrl) {
+    try {
+        const { createClient } = await import("@libsql/client");
+        const client = createClient({
+            url: tursoUrl,
+            authToken: process.env.TURSO_AUTH_TOKEN
+        });
+        const rs = await client.execute(`
+            SELECT DISTINCT niche FROM geo_targets
+        `);
+        const niches = await Promise.all(rs.rows.map(async (row) => {
+            const niche = row.niche as string;
+            const countRs = await client.execute({
+                sql: "SELECT COUNT(*) as count FROM geo_targets WHERE niche = ?",
+                args: [niche]
+            });
+            const sampleRs = await client.execute({
+                sql: "SELECT DISTINCT city FROM geo_targets WHERE niche = ? LIMIT 3",
+                args: [niche]
+            });
+            return {
+                sheetName: niche,
+                normalizedNiche: niche,
+                rowCount: Number(countRs.rows[0].count),
+                sampleCities: sampleRs.rows.map(r => r.city as string)
+            };
+        }));
+
+        return {
+            workbookPath: "Turso Cloud",
+            statusMessage: "Connected to Turso Cloud database.",
+            niches: niches.sort((a,b) => b.rowCount - a.rowCount)
+        };
+    } catch (error) {
+        console.error("Turso workbook summary error:", error);
+    }
+  }
+
   if (cachedSummary) {
     return cachedSummary;
   }

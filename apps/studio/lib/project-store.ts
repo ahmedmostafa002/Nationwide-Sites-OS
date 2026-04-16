@@ -16,10 +16,24 @@ import {
 } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { createClient } from "@libsql/client";
 import { importGeoTargetsForNiche } from "./workbook-import";
 
 let dbInstance: DatabaseSync | null = null;
 let dbInitializationError: Error | null = null;
+let libsqlClient: ReturnType<typeof createClient> | null = null;
+
+function getLibsql() {
+  if (libsqlClient) return libsqlClient;
+  const url = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (url) {
+    libsqlClient = createClient({ url, authToken });
+    return libsqlClient;
+  }
+  return null;
+}
 
 function getDb(): DatabaseSync {
   if (dbInstance) return dbInstance;
@@ -34,15 +48,12 @@ function getDb(): DatabaseSync {
     ? resolve(process.cwd(), configuredPath)
     : defaultDatabasePath;
 
-  // On Netlify, we default to in-memory if no explicit database URL is provided
-  // because the filesystem is read-only.
   const isNetlify = Boolean(process.env.NETLIFY || process.env.NEXT_RUNTIME === "edge");
   
   try {
     if (!isNetlify) {
       mkdirSync(dirname(databasePath), { recursive: true });
     } else if (!configuredPath) {
-      // Use in-memory for Netlify if no persistent DB is configured
       databasePath = ":memory:";
     }
 
@@ -53,7 +64,6 @@ function getDb(): DatabaseSync {
     dbInitializationError = error instanceof Error ? error : new Error(String(error));
     console.error("Database initialization failed:", dbInitializationError);
     
-    // Final fallback to memory if disk access fails
     try {
       dbInstance = new DatabaseSync(":memory:");
       initializeSchema(dbInstance);
@@ -62,6 +72,43 @@ function getDb(): DatabaseSync {
       throw dbInitializationError;
     }
   }
+}
+
+async function initializeTurso() {
+  const client = getLibsql();
+  if (!client) return;
+
+  await client.batch([
+    `CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      site_name TEXT NOT NULL,
+      brand_name TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS studio_settings (
+      id TEXT PRIMARY KEY,
+      payload_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS prompt_library (
+      id TEXT PRIMARY KEY,
+      payload_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS geo_targets (
+        id TEXT PRIMARY KEY,
+        niche TEXT NOT NULL,
+        state TEXT NOT NULL,
+        city TEXT NOT NULL,
+        zip TEXT NOT NULL,
+        payout TEXT,
+        duration TEXT,
+        payout_raw REAL,
+        duration_raw REAL
+    )`
+  ], "write");
 }
 
 function initializeSchema(db: DatabaseSync) {
@@ -275,25 +322,37 @@ Output requirements:
 - Keep the structure crawlable, useful, and easy for visitors to follow.`
 };
 
-export function listProjects(): ProjectListItem[] {
-    const rows = getDb()
-    .prepare(
-      `
-        SELECT id, site_name, brand_name, payload_json, created_at, updated_at
-        FROM projects
-        ORDER BY datetime(updated_at) DESC
-      `
-    )
-    .all() as Array<{
-    id: string;
-    site_name: string;
-    brand_name: string;
-    payload_json: string;
-    created_at: string;
-    updated_at: string;
-  }>;
+export async function listProjects(): Promise<ProjectListItem[]> {
+  const libsql = getLibsql();
+  let rows: any[] = [];
 
-  return rows.map((row) => buildProjectListItem(row));
+  if (libsql) {
+    const rs = await libsql.execute(`
+      SELECT id, site_name, brand_name, payload_json, created_at, updated_at
+      FROM projects
+      ORDER BY datetime(updated_at) DESC
+    `);
+    rows = rs.rows;
+  } else {
+    rows = getDb()
+      .prepare(
+        `
+          SELECT id, site_name, brand_name, payload_json, created_at, updated_at
+          FROM projects
+          ORDER BY datetime(updated_at) DESC
+        `
+      )
+      .all();
+  }
+
+  return rows.map((row) => buildProjectListItem({
+    id: row.id,
+    site_name: row.site_name as string,
+    brand_name: row.brand_name as string,
+    payload_json: row.payload_json as string,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string
+  }));
 }
 
 export function listExports(): ExportListItem[] {
@@ -337,64 +396,103 @@ export function listExports(): ExportListItem[] {
     .sort((left, right) => right.exportedAt.localeCompare(left.exportedAt));
 }
 
-export function getProjectById(id: string): SiteProject | null {
-  const row = getDb()
-    .prepare(
-      `
-        SELECT payload_json
-        FROM projects
-        WHERE id = ?
-      `
-    )
-    .get(id) as { payload_json: string } | undefined;
+export async function getProjectById(id: string): Promise<SiteProject | null> {
+  const libsql = getLibsql();
+  let payloadJson: string | null = null;
 
-  if (!row) {
+  if (libsql) {
+    const rs = await libsql.execute({
+      sql: "SELECT payload_json FROM projects WHERE id = ?",
+      args: [id]
+    });
+    if (rs.rows.length > 0) {
+      payloadJson = rs.rows[0].payload_json as string;
+    }
+  } else {
+    const row = getDb()
+      .prepare(
+        `
+          SELECT payload_json
+          FROM projects
+          WHERE id = ?
+        `
+      )
+      .get(id) as { payload_json: string } | undefined;
+    
+    if (row) {
+      payloadJson = row.payload_json;
+    }
+  }
+
+  if (!payloadJson) {
     return null;
   }
 
-  return siteProjectSchema.parse(JSON.parse(row.payload_json));
+  return siteProjectSchema.parse(JSON.parse(payloadJson));
 }
 
 export function createProjectDraft() {
   return structuredClone(defaultProjectValues);
 }
 
-export function saveProject(input: Record<string, string>): SiteProject {
+export async function saveProject(input: Record<string, string>): Promise<SiteProject> {
   const now = new Date().toISOString();
   const project = siteProjectSchema.parse({
     id: crypto.randomUUID(),
     ...buildProjectPayload(input, now, now)
   });
 
-  try {
-    getDb().prepare(
-      `
-        INSERT INTO projects (
-          id,
-          site_name,
-          brand_name,
-          payload_json,
-          created_at,
-          updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?)
-      `
-    ).run(
-      project.id,
-      project.siteName,
-      project.brandName,
-      JSON.stringify(project),
-      project.createdAt,
-      project.updatedAt
-    );
-  } catch (error) {
-    handleWriteError(error);
+  const libsql = getLibsql();
+  if (libsql) {
+    try {
+      await libsql.execute({
+        sql: `
+          INSERT INTO projects (id, site_name, brand_name, payload_json, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+        args: [
+          project.id,
+          project.siteName,
+          project.brandName,
+          JSON.stringify(project),
+          project.createdAt,
+          project.updatedAt
+        ]
+      });
+    } catch (error) {
+       await handleWriteErrorAsync(error, "Project");
+    }
+  } else {
+    try {
+      getDb().prepare(
+        `
+          INSERT INTO projects (
+            id,
+            site_name,
+            brand_name,
+            payload_json,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `
+      ).run(
+        project.id,
+        project.siteName,
+        project.brandName,
+        JSON.stringify(project),
+        project.createdAt,
+        project.updatedAt
+      );
+    } catch (error) {
+      handleWriteError(error);
+    }
   }
 
   return project;
 }
 
-export function updateProject(id: string, input: Record<string, string>): SiteProject {
-  const existing = getProjectById(id);
+export async function updateProject(id: string, input: Record<string, string>): Promise<SiteProject> {
+  const existing = await getProjectById(id);
   if (!existing) {
     throw new Error("Project not found.");
   }
@@ -405,16 +503,32 @@ export function updateProject(id: string, input: Record<string, string>): SitePr
     ...buildProjectPayload(input, existing.createdAt, updatedAt)
   });
 
-  try {
-    getDb().prepare(
-      `
-        UPDATE projects
-        SET site_name = ?, brand_name = ?, payload_json = ?, updated_at = ?
-        WHERE id = ?
-      `
-    ).run(project.siteName, project.brandName, JSON.stringify(project), project.updatedAt, project.id);
-  } catch (error) {
-    handleWriteError(error);
+  const libsql = getLibsql();
+  if (libsql) {
+    try {
+      await libsql.execute({
+        sql: `
+          UPDATE projects
+          SET site_name = ?, brand_name = ?, payload_json = ?, updated_at = ?
+          WHERE id = ?
+        `,
+        args: [project.siteName, project.brandName, JSON.stringify(project), project.updatedAt, project.id]
+      });
+    } catch (error) {
+      await handleWriteErrorAsync(error, "Project");
+    }
+  } else {
+    try {
+      getDb().prepare(
+        `
+          UPDATE projects
+          SET site_name = ?, brand_name = ?, payload_json = ?, updated_at = ?
+          WHERE id = ?
+        `
+      ).run(project.siteName, project.brandName, JSON.stringify(project), project.updatedAt, project.id);
+    } catch (error) {
+      handleWriteError(error);
+    }
   }
 
   return project;
@@ -486,27 +600,43 @@ export async function exportProjectBundle(projectId: string) {
   };
 }
 
-export function getStudioSettings(): StudioSettings {
+export async function getStudioSettings(): Promise<StudioSettings> {
+  const libsql = getLibsql();
   let dbPayload: Partial<StudioSettings> = {};
   let updatedAt = "";
 
-  try {
-    const row = getDb()
-      .prepare(
-        `
-          SELECT payload_json, updated_at
-          FROM studio_settings
-          WHERE id = ?
-        `
-      )
-      .get("default") as { payload_json: string; updated_at: string } | undefined;
-
-    if (row) {
-      dbPayload = JSON.parse(row.payload_json);
-      updatedAt = row.updated_at;
+  if (libsql) {
+    try {
+      const rs = await libsql.execute({
+        sql: "SELECT payload_json, updated_at FROM studio_settings WHERE id = ?",
+        args: ["default"]
+      });
+      if (rs.rows.length > 0) {
+        dbPayload = JSON.parse(rs.rows[0].payload_json as string);
+        updatedAt = rs.rows[0].updated_at as string;
+      }
+    } catch (error) {
+      console.error("Failed to read studio settings from Turso:", error);
     }
-  } catch (error) {
-    console.error("Failed to read studio settings from database:", error);
+  } else {
+    try {
+      const row = getDb()
+        .prepare(
+          `
+            SELECT payload_json, updated_at
+            FROM studio_settings
+            WHERE id = ?
+          `
+        )
+        .get("default") as { payload_json: string; updated_at: string } | undefined;
+
+      if (row) {
+        dbPayload = JSON.parse(row.payload_json);
+        updatedAt = row.updated_at;
+      }
+    } catch (error) {
+      console.error("Failed to read studio settings from database:", error);
+    }
   }
 
   return {
@@ -519,7 +649,7 @@ export function getStudioSettings(): StudioSettings {
   };
 }
 
-export function saveStudioSettings(input: Record<string, string>): StudioSettings {
+export async function saveStudioSettings(input: Record<string, string>): Promise<StudioSettings> {
   const updatedAt = new Date().toISOString();
   const settings: StudioSettings = {
     openRouterApiKey: input.openRouterApiKey.trim(),
@@ -530,21 +660,44 @@ export function saveStudioSettings(input: Record<string, string>): StudioSetting
     updatedAt
   };
 
-  try {
-    getDb().prepare(
-      `
-        INSERT INTO studio_settings (id, payload_json, updated_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          payload_json = excluded.payload_json,
-          updated_at = excluded.updated_at
-      `
-    ).run("default", JSON.stringify(settings), updatedAt);
-  } catch (error) {
-    handleWriteError(error, "Studio AI settings");
+  const libsql = getLibsql();
+  if (libsql) {
+    try {
+      await libsql.execute({
+        sql: `
+          INSERT INTO studio_settings (id, payload_json, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            payload_json = excluded.payload_json,
+            updated_at = excluded.updated_at
+        `,
+        args: ["default", JSON.stringify(settings), updatedAt]
+      });
+    } catch (error) {
+      await handleWriteErrorAsync(error, "Studio AI settings");
+    }
+  } else {
+    try {
+      getDb().prepare(
+        `
+          INSERT INTO studio_settings (id, payload_json, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            payload_json = excluded.payload_json,
+            updated_at = excluded.updated_at
+        `
+      ).run("default", JSON.stringify(settings), updatedAt);
+    } catch (error) {
+      handleWriteError(error, "Studio AI settings");
+    }
   }
 
   return settings;
+}
+
+async function handleWriteErrorAsync(error: unknown, context: string = "Data") {
+  console.error(`Failed to save ${context} to Turso:`, error);
+  throw error;
 }
 
 function handleWriteError(error: unknown, context: string = "Data") {
@@ -563,33 +716,49 @@ function handleWriteError(error: unknown, context: string = "Data") {
   throw error;
 }
 
-export function getPromptLibrary(): PromptLibrary {
-  const row = getDb()
-    .prepare(
-      `
-        SELECT payload_json, updated_at
-        FROM prompt_library
-        WHERE id = ?
-      `
-    )
-    .get("default") as { payload_json: string; updated_at: string } | undefined;
+export async function getPromptLibrary(): Promise<PromptLibrary> {
+  const libsql = getLibsql();
+  let dbPayload: Partial<PromptLibrary> = {};
+  let updatedAt = "";
 
-  if (!row) {
-    return {
-      ...defaultPromptLibrary,
-      updatedAt: ""
-    };
+  if (libsql) {
+    try {
+      const rs = await libsql.execute({
+        sql: "SELECT payload_json, updated_at FROM prompt_library WHERE id = ?",
+        args: ["default"]
+      });
+      if (rs.rows.length > 0) {
+        dbPayload = JSON.parse(rs.rows[0].payload_json as string);
+        updatedAt = rs.rows[0].updated_at as string;
+      }
+    } catch (error) {
+      console.error("Failed to read prompt library from Turso:", error);
+    }
+  } else {
+    const row = getDb()
+      .prepare(
+        `
+          SELECT payload_json, updated_at
+          FROM prompt_library
+          WHERE id = ?
+        `
+      )
+      .get("default") as { payload_json: string; updated_at: string } | undefined;
+
+    if (row) {
+      dbPayload = JSON.parse(row.payload_json);
+      updatedAt = row.updated_at;
+    }
   }
 
-  const payload = JSON.parse(row.payload_json) as Partial<PromptLibrary>;
   return {
     ...defaultPromptLibrary,
-    ...payload,
-    updatedAt: row.updated_at
+    ...dbPayload,
+    updatedAt
   };
 }
 
-export function savePromptLibrary(input: Record<string, string>): PromptLibrary {
+export async function savePromptLibrary(input: Record<string, string>): Promise<PromptLibrary> {
   const updatedAt = new Date().toISOString();
   const prompts: PromptLibrary = {
     homepagePrompt: input.homepagePrompt.trim() || defaultPromptLibrary.homepagePrompt,
@@ -601,18 +770,36 @@ export function savePromptLibrary(input: Record<string, string>): PromptLibrary 
     updatedAt
   };
 
-  try {
-    getDb().prepare(
-      `
-        INSERT INTO prompt_library (id, payload_json, updated_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          payload_json = excluded.payload_json,
-          updated_at = excluded.updated_at
-      `
-    ).run("default", JSON.stringify(prompts), updatedAt);
-  } catch (error) {
-    handleWriteError(error, "Prompt library");
+  const libsql = getLibsql();
+  if (libsql) {
+    try {
+      await libsql.execute({
+        sql: `
+          INSERT INTO prompt_library (id, payload_json, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            payload_json = excluded.payload_json,
+            updated_at = excluded.updated_at
+        `,
+        args: ["default", JSON.stringify(prompts), updatedAt]
+      });
+    } catch (error) {
+      await handleWriteErrorAsync(error, "Prompt library");
+    }
+  } else {
+    try {
+      getDb().prepare(
+        `
+          INSERT INTO prompt_library (id, payload_json, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            payload_json = excluded.payload_json,
+            updated_at = excluded.updated_at
+        `
+      ).run("default", JSON.stringify(prompts), updatedAt);
+    } catch (error) {
+      handleWriteError(error, "Prompt library");
+    }
   }
 
   return prompts;

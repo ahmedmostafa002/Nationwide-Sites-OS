@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { defaultProjectValues } from "@nls/shared";
 import { ImportSummary } from "./import-summary";
 import { StudioShell } from "./studio-shell";
@@ -12,9 +12,9 @@ const workflowHighlights = [
   "Reusable design families, prompts, and export settings"
 ];
 
-export default function HomePage() {
-  const projects = listProjects();
-  const workbookSummary = getWorkbookSummary();
+export default async function HomePage() {
+  const projects = await listProjects();
+  const workbookSummary = await getWorkbookSummary();
 
   return (
     <StudioShell

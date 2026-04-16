@@ -1,4 +1,4 @@
-﻿import { StudioShell } from "../studio-shell";
+import { StudioShell } from "../studio-shell";
 import { getPromptLibrary } from "../../lib/project-store";
 import { PromptLibraryForm } from "./prompt-library-form";
 
@@ -10,8 +10,9 @@ const guidelinePoints = [
   "Internal links should help visitors, not manipulate rankings"
 ];
 
-export default function PromptsPage() {
-  const prompts = getPromptLibrary();
+export default async function PromptsPage() {
+  const prompts = await getPromptLibrary();
+
 
   return (
     <StudioShell

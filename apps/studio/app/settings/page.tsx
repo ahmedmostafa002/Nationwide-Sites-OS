@@ -1,11 +1,13 @@
-﻿import { getStudioSettings } from "../../lib/project-store";
+import { getStudioSettings } from "../../lib/project-store";
 import { getWorkbookSummary } from "../../lib/workbook-import";
 import { StudioShell } from "../studio-shell";
 import { SettingsForm } from "./settings-form";
 
-export default function SettingsPage() {
-  const workbookSummary = getWorkbookSummary();
-  const settings = getStudioSettings();
+export default async function SettingsPage() {
+  const workbookSummary = await getWorkbookSummary();
+
+  const settings = await getStudioSettings();
+
 
   return (
     <StudioShell
