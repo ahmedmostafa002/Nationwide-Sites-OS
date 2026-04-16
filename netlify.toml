@@ -1,7 +1,5 @@
 [build]
   command = "pnpm build:studio"
-  publish = "apps/studio/.netlify/output/public"
-  functions = "apps/studio/.netlify/functions"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
