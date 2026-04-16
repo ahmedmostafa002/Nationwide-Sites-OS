@@ -2,12 +2,15 @@
   "name": "nationwide-local-site-generator",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.18.3",
   "scripts": {
     "dev:studio": "pnpm --filter studio dev",
     "dev:site": "pnpm --filter site dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "generate-geo-json": "node ./scripts/generate-geo-json.js",
+    "build:studio": "pnpm generate-geo-json && pnpm --filter studio build"
   }
 }
