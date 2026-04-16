@@ -1,7 +1,8 @@
-﻿import { StudioShell } from "../studio-shell";
+import { StudioShell } from "../studio-shell";
 import { listExports } from "../../lib/project-store";
 
-export default function DeploymentsPage() {
+export default async function DeploymentsPage() {
+
   const exports = listExports();
 
   return (

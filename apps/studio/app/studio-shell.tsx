@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { listExports, listProjects, getStudioSettings } from "../lib/project-store";
 import { getWorkbookSummary } from "../lib/workbook-import";
 
@@ -11,7 +11,7 @@ const navigationItems = [
   { label: "Deployments", href: "/deployments", key: "deployments" }
 ] as const;
 
-export function StudioShell({
+export async function StudioShell({
   active,
   title,
   description,
@@ -24,12 +24,13 @@ export function StudioShell({
   stats?: Array<{ value: string; label: string; accent?: boolean }>;
   children: React.ReactNode;
 }) {
-  const projects = listProjects();
+  const projects = await listProjects();
   const exports = listExports();
-  const settings = getStudioSettings();
-  const workbookSummary = getWorkbookSummary();
+  const settings = await getStudioSettings();
+  const workbookSummary = await getWorkbookSummary();
   const totalGeoTargets = projects.reduce((sum, project) => sum + project.geoTargetCount, 0);
   const connectedProviders = [settings.openRouterApiKey, settings.replicateApiToken].filter(Boolean).length;
+
 
   const analytics = [
     { label: "Projects", value: String(projects.length), tone: "default" },
