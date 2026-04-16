@@ -15,11 +15,10 @@ import {
   writeFileSync
 } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { createClient } from "@libsql/client";
 import { importGeoTargetsForNiche } from "./workbook-import";
 
-let dbInstance: DatabaseSync | null = null;
+let dbInstance: any = null;
 let dbInitializationError: Error | null = null;
 let libsqlClient: ReturnType<typeof createClient> | null = null;
 
@@ -35,7 +34,7 @@ function getLibsql() {
   return null;
 }
 
-function getDb(): DatabaseSync {
+async function getDb(): Promise<any> {
   if (dbInstance) return dbInstance;
   if (dbInitializationError && !process.env.NETLIFY) throw dbInitializationError;
 
@@ -57,14 +56,22 @@ function getDb(): DatabaseSync {
       databasePath = ":memory:";
     }
 
-    dbInstance = new DatabaseSync(databasePath);
-    initializeSchema(dbInstance);
-    return dbInstance;
+    try {
+        const { DatabaseSync } = await import("node:sqlite") as any;
+        dbInstance = new DatabaseSync(databasePath);
+        initializeSchema(dbInstance);
+        return dbInstance;
+    } catch (e) {
+        console.warn("node:sqlite not available, using in-memory fallback if possible");
+        // Create a dummy object if needed, or row forward to Turso
+        throw new Error("Local database unavailable. Please configure TURSO_DATABASE_URL for cloud storage.");
+    }
   } catch (error) {
     dbInitializationError = error instanceof Error ? error : new Error(String(error));
     console.error("Database initialization failed:", dbInitializationError);
     
     try {
+      const { DatabaseSync } = await import("node:sqlite") as any;
       dbInstance = new DatabaseSync(":memory:");
       initializeSchema(dbInstance);
       return dbInstance;
@@ -114,7 +121,7 @@ async function ensureRemoteSchema() {
   isRemoteInitialized = true;
 }
 
-function initializeSchema(db: DatabaseSync) {
+function initializeSchema(db: any) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
@@ -339,7 +346,7 @@ export async function listProjects(): Promise<ProjectListItem[]> {
     `);
     rows = rs.rows;
   } else {
-    rows = getDb()
+    rows = (await getDb())
       .prepare(
         `
           SELECT id, site_name, brand_name, payload_json, created_at, updated_at
@@ -416,7 +423,7 @@ export async function getProjectById(id: string): Promise<SiteProject | null> {
       payloadJson = rs.rows[0].payload_json as string;
     }
   } else {
-    const row = getDb()
+    const row = (await getDb())
       .prepare(
         `
           SELECT payload_json
@@ -471,7 +478,7 @@ export async function saveProject(input: Record<string, string>): Promise<SitePr
     }
   } else {
     try {
-      getDb().prepare(
+      (await getDb()).prepare(
         `
           INSERT INTO projects (
             id,
@@ -494,6 +501,7 @@ export async function saveProject(input: Record<string, string>): Promise<SitePr
       handleWriteError(error);
     }
   }
+
 
   return project;
 }
@@ -526,7 +534,7 @@ export async function updateProject(id: string, input: Record<string, string>): 
     }
   } else {
     try {
-      getDb().prepare(
+      (await getDb()).prepare(
         `
           UPDATE projects
           SET site_name = ?, brand_name = ?, payload_json = ?, updated_at = ?
@@ -537,6 +545,7 @@ export async function updateProject(id: string, input: Record<string, string>): 
       handleWriteError(error);
     }
   }
+
 
   return project;
 }
@@ -630,7 +639,7 @@ export async function getStudioSettings(): Promise<StudioSettings> {
     }
   } else {
     try {
-      const row = getDb()
+      const row = (await getDb())
         .prepare(
           `
             SELECT payload_json, updated_at
@@ -688,7 +697,7 @@ export async function saveStudioSettings(input: Record<string, string>): Promise
     }
   } else {
     try {
-      getDb().prepare(
+      (await getDb()).prepare(
         `
           INSERT INTO studio_settings (id, payload_json, updated_at)
           VALUES (?, ?, ?)
@@ -747,7 +756,7 @@ export async function getPromptLibrary(): Promise<PromptLibrary> {
       console.error("Failed to read prompt library from Turso:", error);
     }
   } else {
-    const row = getDb()
+    const row = (await getDb())
       .prepare(
         `
           SELECT payload_json, updated_at
@@ -800,7 +809,7 @@ export async function savePromptLibrary(input: Record<string, string>): Promise<
     }
   } else {
     try {
-      getDb().prepare(
+      (await getDb()).prepare(
         `
           INSERT INTO prompt_library (id, payload_json, updated_at)
           VALUES (?, ?, ?)
