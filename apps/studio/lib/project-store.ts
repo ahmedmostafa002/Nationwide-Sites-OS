@@ -18,46 +18,89 @@ import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { importGeoTargetsForNiche } from "./workbook-import";
 
-const defaultDatabasePath = resolve(process.cwd(), "data", "studio.db");
-const configuredPath = process.env.DATABASE_URL?.startsWith("file:")
-  ? process.env.DATABASE_URL.slice(5)
-  : process.env.DATABASE_URL;
-const databasePath = configuredPath
-  ? resolve(process.cwd(), configuredPath)
-  : defaultDatabasePath;
+let dbInstance: DatabaseSync | null = null;
+let dbInitializationError: Error | null = null;
+
+function getDb(): DatabaseSync {
+  if (dbInstance) return dbInstance;
+  if (dbInitializationError && !process.env.NETLIFY) throw dbInitializationError;
+
+  const defaultDatabasePath = resolve(process.cwd(), "data", "studio.db");
+  const configuredPath = process.env.DATABASE_URL?.startsWith("file:")
+    ? process.env.DATABASE_URL.slice(5)
+    : process.env.DATABASE_URL;
+  
+  let databasePath = configuredPath
+    ? resolve(process.cwd(), configuredPath)
+    : defaultDatabasePath;
+
+  // On Netlify, we default to in-memory if no explicit database URL is provided
+  // because the filesystem is read-only.
+  const isNetlify = Boolean(process.env.NETLIFY || process.env.NEXT_RUNTIME === "edge");
+  
+  try {
+    if (!isNetlify) {
+      mkdirSync(dirname(databasePath), { recursive: true });
+    } else if (!configuredPath) {
+      // Use in-memory for Netlify if no persistent DB is configured
+      databasePath = ":memory:";
+    }
+
+    dbInstance = new DatabaseSync(databasePath);
+    initializeSchema(dbInstance);
+    return dbInstance;
+  } catch (error) {
+    dbInitializationError = error instanceof Error ? error : new Error(String(error));
+    console.error("Database initialization failed:", dbInitializationError);
+    
+    // Final fallback to memory if disk access fails
+    try {
+      dbInstance = new DatabaseSync(":memory:");
+      initializeSchema(dbInstance);
+      return dbInstance;
+    } catch (innerError) {
+      throw dbInitializationError;
+    }
+  }
+}
+
+function initializeSchema(db: DatabaseSync) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      site_name TEXT NOT NULL,
+      brand_name TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS studio_settings (
+      id TEXT PRIMARY KEY,
+      payload_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS prompt_library (
+      id TEXT PRIMARY KEY,
+      payload_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+}
+
 const exportsDirectory = resolve(process.cwd(), "..", "exports");
-
-mkdirSync(dirname(databasePath), { recursive: true });
-mkdirSync(exportsDirectory, { recursive: true });
-
-const db = new DatabaseSync(databasePath);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS projects (
-    id TEXT PRIMARY KEY,
-    site_name TEXT NOT NULL,
-    brand_name TEXT NOT NULL,
-    payload_json TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )
-`);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS studio_settings (
-    id TEXT PRIMARY KEY,
-    payload_json TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )
-`);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS prompt_library (
-    id TEXT PRIMARY KEY,
-    payload_json TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )
-`);
+if (!process.env.NETLIFY) {
+  try {
+    mkdirSync(exportsDirectory, { recursive: true });
+  } catch (e) {
+    // Ignore error if we can't create exports dir (common in CI/Netlify)
+  }
+}
 
 type ProjectListItem = Pick<
   SiteProject,
@@ -233,7 +276,7 @@ Output requirements:
 };
 
 export function listProjects(): ProjectListItem[] {
-  const rows = db
+    const rows = getDb()
     .prepare(
       `
         SELECT id, site_name, brand_name, payload_json, created_at, updated_at
@@ -295,7 +338,7 @@ export function listExports(): ExportListItem[] {
 }
 
 export function getProjectById(id: string): SiteProject | null {
-  const row = db
+  const row = getDb()
     .prepare(
       `
         SELECT payload_json
@@ -324,7 +367,7 @@ export function saveProject(input: Record<string, string>): SiteProject {
   });
 
   try {
-    db.prepare(
+    getDb().prepare(
       `
         INSERT INTO projects (
           id,
@@ -363,7 +406,7 @@ export function updateProject(id: string, input: Record<string, string>): SitePr
   });
 
   try {
-    db.prepare(
+    getDb().prepare(
       `
         UPDATE projects
         SET site_name = ?, brand_name = ?, payload_json = ?, updated_at = ?
@@ -448,7 +491,7 @@ export function getStudioSettings(): StudioSettings {
   let updatedAt = "";
 
   try {
-    const row = db
+    const row = getDb()
       .prepare(
         `
           SELECT payload_json, updated_at
@@ -488,7 +531,7 @@ export function saveStudioSettings(input: Record<string, string>): StudioSetting
   };
 
   try {
-    db.prepare(
+    getDb().prepare(
       `
         INSERT INTO studio_settings (id, payload_json, updated_at)
         VALUES (?, ?, ?)
@@ -521,7 +564,7 @@ function handleWriteError(error: unknown, context: string = "Data") {
 }
 
 export function getPromptLibrary(): PromptLibrary {
-  const row = db
+  const row = getDb()
     .prepare(
       `
         SELECT payload_json, updated_at
@@ -559,7 +602,7 @@ export function savePromptLibrary(input: Record<string, string>): PromptLibrary 
   };
 
   try {
-    db.prepare(
+    getDb().prepare(
       `
         INSERT INTO prompt_library (id, payload_json, updated_at)
         VALUES (?, ?, ?)
