@@ -1,7 +1,8 @@
 import { getWorkbookSummary } from "../lib/workbook-import";
 
-export function ImportSummary() {
-  const summary = getWorkbookSummary();
+export async function ImportSummary() {
+  const summary = await getWorkbookSummary();
+
 
   return (
     <article className="card import-summary-card">
