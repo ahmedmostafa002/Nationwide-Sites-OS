@@ -143,32 +143,29 @@ export async function getWorkbookSummary(): Promise<WorkbookSummary> {
   return cachedSummary;
 }
 
-export function getGeoImportPreview(
+export async function getGeoImportPreview(
   nicheName: string,
   limit: number
-): GeoImportPreview | null {
+): Promise<GeoImportPreview | null> {
   const normalizedNiche = normalizeNicheName(nicheName);
   if (!normalizedNiche) {
     return null;
   }
 
-  const records = importGeoTargetsForNiche(normalizedNiche, Math.max(limit, 0));
-  const allRecords = getAllGeoTargetsForNiche(normalizedNiche);
+  const snapshot = await getGeoTargetSnapshot(normalizedNiche, limit);
 
-  if (allRecords.length === 0) {
+  if (!snapshot || snapshot.availableCount === 0) {
     return null;
   }
 
-  const states = Array.from(new Set(records.map((record) => record.state))).slice(0, 8);
+  const records = snapshot.targets;
+  const states = snapshot.states.map(s => s.state).slice(0, 8);
   const sampleCities = Array.from(new Set(records.map((record) => record.city))).slice(0, 4);
-  const topPayoutType =
-    records.find((record) => record.payoutType)?.payoutType ||
-    allRecords.find((record) => record.payoutType)?.payoutType ||
-    "Mixed payout types";
+  const topPayoutType = "CPL";
 
   return {
     niche: normalizedNiche,
-    availableCount: allRecords.length,
+    availableCount: snapshot.availableCount,
     importedCount: records.length,
     states,
     sampleCities,
@@ -183,10 +180,71 @@ export function importGeoTargetsForNiche(
   return getAllGeoTargetsForNiche(nicheName).slice(0, Math.max(limit, 0));
 }
 
-export function getGeoTargetSnapshot(
+export async function getGeoTargetSnapshot(
   nicheName: string,
   limit: number
-): GeoTargetSnapshot | null {
+): Promise<GeoTargetSnapshot | null> {
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  if (tursoUrl) {
+    try {
+        const { createClient } = await import("@libsql/client");
+        const client = createClient({
+            url: tursoUrl,
+            authToken: process.env.TURSO_AUTH_TOKEN
+        });
+        
+        const countRs = await client.execute({
+            sql: "SELECT COUNT(*) as count FROM geo_targets WHERE niche = ?",
+            args: [nicheName]
+        });
+        const total = Number(countRs.rows[0].count);
+        if (total === 0) return null;
+
+        const stateRs = await client.execute({
+            sql: `SELECT state, COUNT(*) as count, GROUP_CONCAT(city, '|') as cities 
+                  FROM (SELECT state, city FROM geo_targets WHERE niche = ? ORDER BY payout_raw DESC)
+                  GROUP BY state ORDER BY count DESC`,
+            args: [nicheName]
+        });
+
+        const targetRs = await client.execute({
+            sql: "SELECT * FROM geo_targets WHERE niche = ? ORDER BY payout_raw DESC LIMIT ?",
+            args: [nicheName, limit]
+        });
+
+        const states: GeoStateSnapshot[] = stateRs.rows.map(r => ({
+            state: r.state as string,
+            targetCount: Number(r.count),
+            sampleCities: (r.cities as string).split("|").slice(0, 3).map(c => c.charAt(0).toUpperCase() + c.slice(1)),
+            averagePriorityScore: 100,
+            topPayoutType: "CPL"
+        }));
+
+        const targets: GeoTarget[] = targetRs.rows.map(r => ({
+            state: r.state as string,
+            city: r.city as string,
+            zip: r.zip as string,
+            payout: r.payout as string,
+            duration: r.duration as string,
+            payoutValue: Number(r.payout_raw),
+            durationSeconds: Number(r.duration_raw),
+            population: 0, 
+            priorityScore: 100,
+            niche: nicheName,
+            payoutType: "CPL"
+        }));
+
+        return {
+            niche: nicheName,
+            availableCount: total,
+            states,
+            targets
+        };
+    } catch (error) {
+        console.error("Turso snapshot error:", error);
+    }
+  }
+
   const normalizedNiche = normalizeNicheName(nicheName);
   if (!normalizedNiche) {
     return null;
