@@ -1,4 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { createClient } from "@libsql/client";
+
 import { resolve } from "node:path";
 import * as XLSX from "xlsx";
 import { geoTargetSchema, type GeoTarget } from "@nls/shared";
@@ -56,7 +58,6 @@ export async function getWorkbookSummary(): Promise<WorkbookSummary> {
   const tursoUrl = process.env.TURSO_DATABASE_URL;
   if (tursoUrl) {
     try {
-        const { createClient } = await import("@libsql/client");
         const client = createClient({
             url: tursoUrl,
             authToken: process.env.TURSO_AUTH_TOKEN
@@ -91,6 +92,7 @@ export async function getWorkbookSummary(): Promise<WorkbookSummary> {
         console.error("Turso workbook summary error:", error);
     }
   }
+
 
   if (cachedSummary) {
     return cachedSummary;
@@ -185,9 +187,12 @@ export async function getGeoTargetSnapshot(
   limit: number
 ): Promise<GeoTargetSnapshot | null> {
   const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const normalizedNiche = normalizeNicheName(nicheName);
+  
+  console.log(`[GeoSnapshot] Requested: "${nicheName}", Normalized: "${normalizedNiche}"`);
+
   if (tursoUrl) {
     try {
-        const { createClient } = await import("@libsql/client");
         const client = createClient({
             url: tursoUrl,
             authToken: process.env.TURSO_AUTH_TOKEN
@@ -195,8 +200,9 @@ export async function getGeoTargetSnapshot(
         
         const countRs = await client.execute({
             sql: "SELECT COUNT(*) as count FROM geo_targets WHERE LOWER(niche) = LOWER(?)",
-            args: [nicheName]
+            args: [normalizedNiche]
         });
+
         const total = Number(countRs.rows[0].count);
         if (total === 0) return null;
 
@@ -204,13 +210,14 @@ export async function getGeoTargetSnapshot(
             sql: `SELECT state, COUNT(*) as count, GROUP_CONCAT(city, '|') as cities 
                   FROM (SELECT state, city FROM geo_targets WHERE LOWER(niche) = LOWER(?) ORDER BY payout_raw DESC)
                   GROUP BY state ORDER BY count DESC`,
-            args: [nicheName]
+            args: [normalizedNiche]
         });
 
         const targetRs = await client.execute({
             sql: "SELECT * FROM geo_targets WHERE LOWER(niche) = LOWER(?) ORDER BY payout_raw DESC LIMIT ?",
-            args: [nicheName, limit]
+            args: [normalizedNiche, limit]
         });
+
 
 
         const states: GeoStateSnapshot[] = stateRs.rows.map(r => ({

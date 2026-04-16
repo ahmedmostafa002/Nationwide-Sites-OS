@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.2",
     "@nls/shared": "workspace:*",
     "@types/archiver": "^7.0.0",
     "archiver": "^7.0.1",
