@@ -297,7 +297,7 @@ export async function getGeoTargetSnapshot(
     niche: normalizedNiche,
     availableCount: allTargets.length,
     states,
-    targets
+    targets: localTargets
   };
 }
 function getAllGeoTargetsForNiche(nicheName: string) {

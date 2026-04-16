@@ -34,6 +34,9 @@ importers:
 
   apps/studio:
     dependencies:
+      '@libsql/client':
+        specifier: ^0.17.2
+        version: 0.17.2
       '@nls/shared':
         specifier: workspace:*
         version: link:../../packages/shared
