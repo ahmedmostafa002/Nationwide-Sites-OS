@@ -73,7 +73,8 @@ export async function getWorkbookSummary(): Promise<WorkbookSummary> {
 
         const rs = await client.execute(`
             SELECT DISTINCT niche FROM geo_targets
-        `);
+        `).catch(() => ({ rows: [] }));
+        
         const niches = rs.rows.map(row => ({
             sheetName: row.niche as string,
             normalizedNiche: row.niche as string,

@@ -87,38 +87,42 @@ async function ensureRemoteSchema() {
   const client = getLibsql();
   if (!client) return;
 
-  await client.batch([
-    `CREATE TABLE IF NOT EXISTS projects (
-      id TEXT PRIMARY KEY,
-      site_name TEXT NOT NULL,
-      brand_name TEXT NOT NULL,
-      payload_json TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS studio_settings (
-      id TEXT PRIMARY KEY,
-      payload_json TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS prompt_library (
-      id TEXT PRIMARY KEY,
-      payload_json TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS geo_targets (
+  try {
+    await client.batch([
+      `CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
-        niche TEXT NOT NULL,
-        state TEXT NOT NULL,
-        city TEXT NOT NULL,
-        zip TEXT NOT NULL,
-        payout TEXT,
-        duration TEXT,
-        payout_raw REAL,
-        duration_raw REAL
-    )`
-  ], "write");
-  isRemoteInitialized = true;
+        site_name TEXT NOT NULL,
+        brand_name TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS studio_settings (
+        id TEXT PRIMARY KEY,
+        payload_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS prompt_library (
+        id TEXT PRIMARY KEY,
+        payload_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS geo_targets (
+          id TEXT PRIMARY KEY,
+          niche TEXT NOT NULL,
+          state TEXT NOT NULL,
+          city TEXT NOT NULL,
+          zip TEXT NOT NULL,
+          payout TEXT,
+          duration TEXT,
+          payout_raw REAL,
+          duration_raw REAL
+      )`
+    ], "write");
+    isRemoteInitialized = true;
+  } catch (error) {
+    console.error("Remote schema initialization failed (lazy retry will occur):", error);
+  }
 }
 
 function initializeSchema(db: any) {
@@ -339,12 +343,17 @@ export async function listProjects(): Promise<ProjectListItem[]> {
   let rows: any[] = [];
 
   if (libsql) {
-    const rs = await libsql.execute(`
-      SELECT id, site_name, brand_name, payload_json, created_at, updated_at
-      FROM projects
-      ORDER BY datetime(updated_at) DESC
-    `);
-    rows = rs.rows;
+    try {
+      const rs = await libsql.execute(`
+        SELECT id, site_name, brand_name, payload_json, created_at, updated_at
+        FROM projects
+        ORDER BY datetime(updated_at) DESC
+      `);
+      rows = rs.rows;
+    } catch (error) {
+       console.error("Turso project list error:", error);
+       rows = [];
+    }
   } else {
     rows = (await getDb())
       .prepare(
