@@ -661,9 +661,13 @@ function parseNumber(value: unknown) {
 function normalizeNicheName(value: string) {
   let normalized = value
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
     .trim();
+
+  if (normalized.endsWith("-")) normalized = normalized.slice(0, -1);
+  if (normalized.startsWith("-")) normalized = normalized.slice(1);
+
 
   normalized = normalized
     .replace(/\bplumber\b/g, "plumbing")
