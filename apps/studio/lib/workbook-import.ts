@@ -194,7 +194,7 @@ export async function getGeoTargetSnapshot(
         });
         
         const countRs = await client.execute({
-            sql: "SELECT COUNT(*) as count FROM geo_targets WHERE niche = ?",
+            sql: "SELECT COUNT(*) as count FROM geo_targets WHERE LOWER(niche) = LOWER(?)",
             args: [nicheName]
         });
         const total = Number(countRs.rows[0].count);
@@ -202,15 +202,16 @@ export async function getGeoTargetSnapshot(
 
         const stateRs = await client.execute({
             sql: `SELECT state, COUNT(*) as count, GROUP_CONCAT(city, '|') as cities 
-                  FROM (SELECT state, city FROM geo_targets WHERE niche = ? ORDER BY payout_raw DESC)
+                  FROM (SELECT state, city FROM geo_targets WHERE LOWER(niche) = LOWER(?) ORDER BY payout_raw DESC)
                   GROUP BY state ORDER BY count DESC`,
             args: [nicheName]
         });
 
         const targetRs = await client.execute({
-            sql: "SELECT * FROM geo_targets WHERE niche = ? ORDER BY payout_raw DESC LIMIT ?",
+            sql: "SELECT * FROM geo_targets WHERE LOWER(niche) = LOWER(?) ORDER BY payout_raw DESC LIMIT ?",
             args: [nicheName, limit]
         });
+
 
         const states: GeoStateSnapshot[] = stateRs.rows.map(r => ({
             state: r.state as string,
@@ -231,8 +232,16 @@ export async function getGeoTargetSnapshot(
             population: 0, 
             priorityScore: 100,
             niche: nicheName,
-            payoutType: "CPL"
+            payoutType: "CPL",
+            county: "",
+            lat: null,
+            lng: null,
+            timezone: "UTC",
+            payoutAmount: Number(r.payout_raw) || 0,
+            sourceSheet: nicheName,
+            dataConfidenceScore: 100
         }));
+
 
         return {
             niche: nicheName,
