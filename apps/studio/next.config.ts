@@ -17,7 +17,10 @@ const nextConfig: NextConfig = {
       };
     }
     return config;
-  }
+  },
+  outputFileTracingIncludes: {
+    '/**': ['./data/**/*'],
+  },
 };
 
 export default nextConfig;

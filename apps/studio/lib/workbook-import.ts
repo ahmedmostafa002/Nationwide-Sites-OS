@@ -248,11 +248,12 @@ function loadWorkbook(workbookPath: string) {
     ? localJsonPath 
     : existsSync(rootJsonPath) 
       ? rootJsonPath 
-      : relativeJsonPath;
+      : existsSync(relativeJsonPath)
+        ? relativeJsonPath
+        : null;
 
-  if (existsSync(jsonPath)) {
-
-
+  if (jsonPath) {
+    console.log(`✓ Workbook Import: Found data at ${jsonPath}`);
     try {
       const jsonData = JSON.parse(readFileSync(jsonPath, "utf-8"));
       // Simulate XLSX.WorkBook structure
