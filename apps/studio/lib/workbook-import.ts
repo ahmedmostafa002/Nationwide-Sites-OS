@@ -53,35 +53,34 @@ let cachedZipLookup: Map<string, ZipLookup> | null = null;
 let cachedSummary: WorkbookSummary | null = null;
 let workbookUnavailableReason: string | null = null;
 let cachedSheetTargets: Map<string, GeoTarget[]> | null = null;
+let libsqlClient: ReturnType<typeof createClient> | null = null;
+
+function getLibsql() {
+  if (libsqlClient) return libsqlClient;
+  const url = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+  if (url) {
+    libsqlClient = createClient({ url, authToken });
+    return libsqlClient;
+  }
+  return null;
+}
 
 export async function getWorkbookSummary(): Promise<WorkbookSummary> {
-  const tursoUrl = process.env.TURSO_DATABASE_URL;
-  if (tursoUrl) {
+  const client = getLibsql();
+  if (client) {
     try {
-        const client = createClient({
-            url: tursoUrl,
-            authToken: process.env.TURSO_AUTH_TOKEN
-        });
+
         const rs = await client.execute(`
             SELECT DISTINCT niche FROM geo_targets
         `);
-        const niches = await Promise.all(rs.rows.map(async (row) => {
-            const niche = row.niche as string;
-            const countRs = await client.execute({
-                sql: "SELECT COUNT(*) as count FROM geo_targets WHERE niche = ?",
-                args: [niche]
-            });
-            const sampleRs = await client.execute({
-                sql: "SELECT DISTINCT city FROM geo_targets WHERE niche = ? LIMIT 3",
-                args: [niche]
-            });
-            return {
-                sheetName: niche,
-                normalizedNiche: niche,
-                rowCount: Number(countRs.rows[0].count),
-                sampleCities: sampleRs.rows.map(r => r.city as string)
-            };
+        const niches = rs.rows.map(row => ({
+            sheetName: row.niche as string,
+            normalizedNiche: row.niche as string,
+            rowCount: 0,
+            sampleCities: []
         }));
+
 
         return {
             workbookPath: "Turso Cloud",
@@ -186,17 +185,14 @@ export async function getGeoTargetSnapshot(
   nicheName: string,
   limit: number
 ): Promise<GeoTargetSnapshot | null> {
-  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const client = getLibsql();
   const normalizedNiche = normalizeNicheName(nicheName);
   
   console.log(`[GeoSnapshot] Requested: "${nicheName}", Normalized: "${normalizedNiche}"`);
 
-  if (tursoUrl) {
+  if (client) {
     try {
-        const client = createClient({
-            url: tursoUrl,
-            authToken: process.env.TURSO_AUTH_TOKEN
-        });
+
         
         const countRs = await client.execute({
             sql: "SELECT COUNT(*) as count FROM geo_targets WHERE LOWER(niche) = LOWER(?)",
